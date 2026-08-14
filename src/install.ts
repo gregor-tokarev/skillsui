@@ -9,6 +9,7 @@ import { sanitizeMetadata } from '../vendor/skills/src/sanitize.ts';
 import type { AppPaths } from './paths.ts';
 import { assertPathInside, pathExists } from './fs-utils.ts';
 import { cloneLock, readLock, writeLock } from './lockfiles.ts';
+import { throwIfAborted } from './abort.ts';
 import { findRemoteSkill, getSkillPath, loadRemote } from './remote.ts';
 import { copyDirectoryTransaction } from './transactions.ts';
 import type {
@@ -107,13 +108,20 @@ function sourceEntry(result: SearchSkill): ProjectLockEntry {
   };
 }
 
-export async function loadInstallPreview(result: SearchSkill): Promise<InstallPreview> {
+export async function loadInstallPreview(
+  result: SearchSkill,
+  signal?: AbortSignal
+): Promise<InstallPreview> {
+  throwIfAborted(signal);
   const seed = sourceEntry(result);
-  const remote = await loadRemote(seed);
+  const remote = await loadRemote(seed, signal);
   try {
+    throwIfAborted(signal);
     const skill = await findRemoteSkill(remote, seed, result.name);
+    throwIfAborted(signal);
     const readmePath = join(skill.path, 'README.md');
     const hasReadme = await pathExists(readmePath);
+    throwIfAborted(signal);
     const previewPath = hasReadme ? readmePath : join(skill.path, 'SKILL.md');
     return {
       contents: await readFile(previewPath, 'utf8'),

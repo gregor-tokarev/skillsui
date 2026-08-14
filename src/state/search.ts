@@ -1,5 +1,6 @@
 import { onCleanup, type Accessor, type Setter } from 'solid-js';
 import { useTerminalDimensions } from '@opentui/solid';
+import { delay, isAbortError } from '../abort.ts';
 import type { AppPaths } from '../paths.ts';
 import {
   findInstallCollision,
@@ -14,6 +15,8 @@ import {
 import type { ScopeId } from '../types.ts';
 import { searchResultsCapacity, type Modal, type SearchModal } from '../ui/modals.tsx';
 import type { LibraryState } from './library.ts';
+
+export const PREVIEW_DEBOUNCE_MS = 100;
 
 export interface SearchControllerDeps {
   paths: AppPaths;
@@ -37,8 +40,8 @@ function searchStatus(count: number, hasMore: boolean, loadingMore = false): str
 
 /**
  * The skills.sh install modal: query entry, paged results, preview loading, and
- * the install itself. Late responses are dropped by generation counters, so a
- * cancelled or superseded request never overwrites the modal a user sees now.
+ * the install itself. Preview fetches wait 100ms, and leaving a row aborts the
+ * clone or fetch. Late responses are also dropped by generation counters.
  */
 export function createSearchController({ paths, library, modal, setModal }: SearchControllerDeps) {
   const dimensions = useTerminalDimensions();
@@ -47,9 +50,16 @@ export function createSearchController({ paths, library, modal, setModal }: Sear
   let disposed = false;
   let previewGeneration = 0;
   let searchGeneration = 0;
+  let previewAbort: AbortController | null = null;
+
+  function abortPreviewRequest(): void {
+    previewAbort?.abort();
+    previewAbort = null;
+  }
 
   /** Discards in-flight preview and search responses. */
   function cancelPendingRequests(): void {
+    abortPreviewRequest();
     previewGeneration++;
     searchGeneration++;
   }
@@ -111,6 +121,7 @@ export function createSearchController({ paths, library, modal, setModal }: Sear
     if (!result) return;
     if (index === searchModal.index && searchModal.previewState !== 'idle') return;
 
+    abortPreviewRequest();
     const generation = ++previewGeneration;
     const key = resultKey(result);
     const cached = previewCache.get(key);
@@ -124,8 +135,11 @@ export function createSearchController({ paths, library, modal, setModal }: Sear
     });
     if (cached) return;
 
+    const controller = new AbortController();
+    previewAbort = controller;
     try {
-      const preview = await loadInstallPreview(result);
+      await delay(PREVIEW_DEBOUNCE_MS, controller.signal);
+      const preview = await loadInstallPreview(result, controller.signal);
       previewCache.set(key, preview);
       const current = currentResultsModal(generation, key);
       if (!current) return;
@@ -137,6 +151,7 @@ export function createSearchController({ paths, library, modal, setModal }: Sear
         previewOffset: 0,
       });
     } catch (error) {
+      if (isAbortError(error)) return;
       const current = currentResultsModal(generation, key);
       if (!current) return;
       setModal({
