@@ -53,8 +53,8 @@ Folders with lock entries appear as tracked. Folders without entries appear as l
 without folders are counted as hidden in the pane title. Updates replace tracked skill contents, so
 the status line warns before an update starts.
 
-Search results open in a split install modal. Selecting a result previews its `README.md`, falling
-back to `SKILL.md`, before installation.
+Search results open in a split install modal. Selecting a result downloads and previews its
+`SKILL.md` before installation.
 
 ## Development
 

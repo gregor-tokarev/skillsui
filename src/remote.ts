@@ -137,7 +137,7 @@ export function skillDirectoryFromPath(root: string, skillPath: string): string 
   return join(root, dirname(skillPath.split('/').join(sep)));
 }
 
-/** Preview loads pass a signal so we can kill git; install still uses the vendor clone. */
+/** Callers with an AbortSignal can cancel the clone and its process tree. */
 async function cloneRepoAbortable(
   url: string,
   ref: string | undefined,

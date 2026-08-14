@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SearchSkill } from '../vendor/skills/src/find.ts';
 import { computeSkillFolderHash } from '../vendor/skills/src/local-lock.ts';
@@ -38,7 +37,11 @@ export interface SearchPage {
 
 export interface InstallPreview {
   contents: string;
-  fileName: 'README.md' | 'SKILL.md';
+  fileName: 'SKILL.md';
+}
+
+interface SkillDownload {
+  files?: Array<{ path?: string; contents?: string }>;
 }
 
 function searchApiBase(): string {
@@ -113,23 +116,29 @@ export async function loadInstallPreview(
   signal?: AbortSignal
 ): Promise<InstallPreview> {
   throwIfAborted(signal);
-  const seed = sourceEntry(result);
-  const remote = await loadRemote(seed, signal);
-  try {
-    throwIfAborted(signal);
-    const skill = await findRemoteSkill(remote, seed, result.name);
-    throwIfAborted(signal);
-    const readmePath = join(skill.path, 'README.md');
-    const hasReadme = await pathExists(readmePath);
-    throwIfAborted(signal);
-    const previewPath = hasReadme ? readmePath : join(skill.path, 'SKILL.md');
-    return {
-      contents: await readFile(previewPath, 'utf8'),
-      fileName: hasReadme ? 'README.md' : 'SKILL.md',
-    };
-  } finally {
-    await remote.cleanup().catch(() => undefined);
+  const segments = result.slug.split('/');
+  if (
+    segments.length < 2 ||
+    segments.some((segment) => !segment || segment === '.' || segment === '..')
+  ) {
+    throw new Error(`Invalid skill ID: ${result.slug}`);
   }
+
+  const id = segments.map(encodeURIComponent).join('/');
+  const response = await fetch(`${searchApiBase()}/api/download/${id}`, { signal });
+  if (!response.ok) {
+    throw new Error(`Could not download SKILL.md (${response.status})`);
+  }
+
+  const download = (await response.json()) as SkillDownload;
+  throwIfAborted(signal);
+  const skillMd = download.files?.find(
+    (file) => file.path?.replaceAll('\\', '/').toLowerCase() === 'skill.md'
+  );
+  if (typeof skillMd?.contents !== 'string') {
+    throw new Error('Downloaded skill has no SKILL.md');
+  }
+  return { contents: skillMd.contents, fileName: 'SKILL.md' };
 }
 
 function removeMatchingEntries(skills: Record<string, TrackedEntry>, folderName: string): void {

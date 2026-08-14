@@ -41,7 +41,7 @@ function searchStatus(count: number, hasMore: boolean, loadingMore = false): str
 /**
  * The skills.sh install modal: query entry, paged results, preview loading, and
  * the install itself. Preview fetches wait 100ms, and leaving a row aborts the
- * clone or fetch. Late responses are also dropped by generation counters.
+ * fetch. Late responses are also dropped by generation counters.
  */
 export function createSearchController({ paths, library, modal, setModal }: SearchControllerDeps) {
   const dimensions = useTerminalDimensions();
