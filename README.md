@@ -30,6 +30,7 @@ Run `skillsui` from a project root. Pass another root with `skillsui --project p
 | `F`                   | Fork one skill under a new local name                   |
 | `U`                   | Update selected tracked skills                          |
 | `i` / `I`             | Search skills.sh and install in project or global scope |
+| `n` / `p`             | Next / previous page of search results                  |
 | `PageUp` / `PageDown` | Scroll the selected search result's install preview     |
 | `r`                   | Reload folders, lockfiles, and update state             |
 | `q`                   | Quit                                                    |

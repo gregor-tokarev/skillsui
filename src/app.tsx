@@ -17,6 +17,8 @@ import {
   findInstallCollision,
   installSearchResult,
   loadInstallPreview,
+  SEARCH_PAGE_SIZE,
+  searchNeedsMore,
   searchSkills,
   type InstallPreview,
   type SearchSkill,
@@ -32,6 +34,7 @@ import {
   ModalFrame,
   SearchQueryView,
   SearchResultsView,
+  searchResultsCapacity,
   type ForkModal,
   type Modal,
   type SearchModal,
@@ -71,6 +74,7 @@ export function App(props: { paths: AppPaths }) {
   let disposed = false;
   let checkGeneration = 0;
   let previewGeneration = 0;
+  let searchGeneration = 0;
 
   function announce(message: string, alert = false): void {
     setStatus(message);
@@ -249,8 +253,16 @@ export function App(props: { paths: AppPaths }) {
     }
   }
 
+  function searchStatus(count: number, hasMore: boolean, loadingMore = false): string {
+    if (count === 0) return 'No results, or skills.sh could not be reached';
+    const noun = `${count} result${count === 1 ? '' : 's'}`;
+    if (loadingMore) return `${noun} · loading more`;
+    return hasMore ? `${noun} · more available` : noun;
+  }
+
   function openSearch(scope: ScopeId): void {
     previewGeneration++;
+    searchGeneration++;
     setModal({
       type: 'search',
       scope,
@@ -259,6 +271,8 @@ export function App(props: { paths: AppPaths }) {
       results: [],
       index: 0,
       loading: false,
+      loadingMore: false,
+      hasMore: false,
       message: 'Type at least two characters, then press Enter',
       preview: '',
       previewFile: '',
@@ -338,26 +352,119 @@ export function App(props: { paths: AppPaths }) {
       setModal({ ...searchModal, message: 'Search needs at least two characters' });
       return;
     }
-    setModal({ ...searchModal, loading: true, message: 'Searching skills.sh' });
-    const results = await searchSkills(searchModal.query);
+    const generation = ++searchGeneration;
+    setModal({
+      ...searchModal,
+      loading: true,
+      loadingMore: false,
+      hasMore: false,
+      message: 'Searching skills.sh',
+    });
+    const page = await searchSkills(searchModal.query);
     const current = modal();
-    if (!current || current.type !== 'search') return;
+    if (disposed || generation !== searchGeneration || !current || current.type !== 'search') {
+      return;
+    }
     const next: SearchModal = {
       ...current,
       phase: 'results',
-      results,
+      results: page.skills,
       index: 0,
       loading: false,
-      message: results.length
-        ? `${results.length} result${results.length === 1 ? '' : 's'}`
-        : 'No results, or skills.sh could not be reached',
+      loadingMore: false,
+      hasMore: page.hasMore,
+      message: searchStatus(page.skills.length, page.hasMore),
       preview: '',
       previewFile: '',
       previewState: 'idle',
       previewOffset: 0,
     };
     setModal(next);
-    if (results.length > 0) void selectSearchResult(next, 0);
+    if (page.hasMore && shouldPrefetchSearch(next, 0)) {
+      void loadMoreResults(next, 0);
+    } else if (page.skills.length > 0) {
+      void selectSearchResult(next, 0);
+    }
+  }
+
+  async function loadMoreResults(searchModal: SearchModal, selectIndex?: number): Promise<void> {
+    if (!searchModal.hasMore || searchModal.loading || searchModal.loadingMore) return;
+    const generation = searchGeneration;
+    const offset = searchModal.results.length;
+    const latest = modal();
+    const base = latest && latest.type === 'search' ? latest : searchModal;
+    setModal({
+      ...base,
+      loadingMore: true,
+      message: searchStatus(base.results.length, true, true),
+    });
+    const page = await searchSkills(searchModal.query, offset);
+    const current = modal();
+    if (
+      disposed ||
+      generation !== searchGeneration ||
+      !current ||
+      current.type !== 'search' ||
+      current.phase !== 'results'
+    ) {
+      return;
+    }
+    const seen = new Set(
+      current.results.map((result) => result.slug || `${result.source}\0${result.name}`)
+    );
+    const extra = page.skills.filter(
+      (result) => !seen.has(result.slug || `${result.source}\0${result.name}`)
+    );
+    const results = [...current.results, ...extra];
+    const hasMore = extra.length > 0 && page.hasMore;
+    const nextIndex =
+      selectIndex === undefined
+        ? Math.min(current.index, Math.max(0, results.length - 1))
+        : Math.min(Math.max(selectIndex, 0), Math.max(0, results.length - 1));
+    const next: SearchModal = {
+      ...current,
+      results,
+      loadingMore: false,
+      hasMore,
+      message: searchStatus(results.length, hasMore),
+    };
+    setModal(next);
+    if (hasMore && shouldPrefetchSearch(next, nextIndex)) {
+      void loadMoreResults(next, nextIndex);
+    } else if (results[nextIndex]) {
+      void selectSearchResult(next, nextIndex);
+    }
+  }
+
+  function visibleSearchRows(): number {
+    return searchResultsCapacity(dimensions().width, dimensions().height);
+  }
+
+  function shouldPrefetchSearch(searchModal: SearchModal, index: number): boolean {
+    if (!searchModal.hasMore || searchModal.loading || searchModal.loadingMore) return false;
+    return (
+      searchNeedsMore(index, searchModal.results.length) ||
+      searchModal.results.length < visibleSearchRows()
+    );
+  }
+
+  function moveSearchCursor(searchModal: SearchModal, index: number): void {
+    const next = Math.max(0, Math.min(index, searchModal.results.length - 1));
+    void selectSearchResult(searchModal, next);
+    if (shouldPrefetchSearch(searchModal, next)) void loadMoreResults(searchModal);
+  }
+
+  function pageSearchResults(searchModal: SearchModal, direction: 1 | -1): void {
+    const target = searchModal.index + direction * SEARCH_PAGE_SIZE;
+    if (direction > 0 && target >= searchModal.results.length) {
+      if (searchModal.hasMore) {
+        void loadMoreResults(searchModal, target);
+        return;
+      }
+      moveSearchCursor(searchModal, searchModal.results.length - 1);
+      return;
+    }
+    moveSearchCursor(searchModal, target);
   }
 
   async function installSelected(searchModal: SearchModal, scope: ScopeId): Promise<void> {
@@ -418,11 +525,14 @@ export function App(props: { paths: AppPaths }) {
 
   function returnToSearch(searchModal: SearchModal): void {
     previewGeneration++;
+    searchGeneration++;
     setModal({
       ...searchModal,
       phase: 'query',
       results: [],
       index: 0,
+      loadingMore: false,
+      hasMore: false,
       preview: '',
       previewFile: '',
       previewState: 'idle',
@@ -438,6 +548,7 @@ export function App(props: { paths: AppPaths }) {
         return;
       }
       previewGeneration++;
+      searchGeneration++;
       setModal(null);
       announce('Cancelled');
       return;
@@ -488,12 +599,13 @@ export function App(props: { paths: AppPaths }) {
     if (key.name === 'backspace') {
       returnToSearch(activeModal);
     } else if (key.name === 'j' || key.name === 'down') {
-      void selectSearchResult(
-        activeModal,
-        Math.min(activeModal.index + 1, activeModal.results.length - 1)
-      );
+      moveSearchCursor(activeModal, activeModal.index + 1);
     } else if (key.name === 'k' || key.name === 'up') {
-      void selectSearchResult(activeModal, Math.max(0, activeModal.index - 1));
+      moveSearchCursor(activeModal, activeModal.index - 1);
+    } else if (key.name.toLowerCase() === 'n') {
+      pageSearchResults(activeModal, 1);
+    } else if (key.name.toLowerCase() === 'p') {
+      pageSearchResults(activeModal, -1);
     } else if (key.name === 'pagedown') {
       const max = Math.max(0, activeModal.preview.split(/\r?\n/).length - 1);
       setModal({
@@ -550,6 +662,7 @@ export function App(props: { paths: AppPaths }) {
     disposed = true;
     checkGeneration++;
     previewGeneration++;
+    searchGeneration++;
   });
 
   const paneBudget = () => Math.max(3, dimensions().height - 10);

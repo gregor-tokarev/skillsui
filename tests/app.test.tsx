@@ -126,6 +126,185 @@ describe('OpenTUI app', () => {
     }
   });
 
+  test('pages past the first 20 search results', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-search-page-'));
+    temporary.push(root);
+    const paths = testPaths(join(root, 'project'), join(root, 'home'));
+    const catalog = join(root, 'catalog');
+    await writeSkill(catalog, 'remote-one', { readme: '# Paged preview' });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        const limit = Number(url.searchParams.get('limit') || '20');
+        return Response.json({
+          skills: Array.from({ length: limit }, (_, index) => {
+            const name = `hit-${String(index + 1).padStart(2, '0')}`;
+            return {
+              id: `local/${name}`,
+              name,
+              source: catalog,
+              installs: limit - index,
+            };
+          }),
+        });
+      },
+      { preconnect: originalFetch.preconnect }
+    );
+
+    const setup = await testRender(() => <App paths={paths} />, {
+      width: 120,
+      height: 30,
+      kittyKeyboard: true,
+    });
+    try {
+      await setup.waitForFrame((frame) => frame.includes('Project 0'));
+      setup.mockInput.pressKey('i');
+      await setup.mockInput.typeText('page');
+      setup.mockInput.pressEnter();
+
+      const first = await setup.waitForFrame(
+        (frame) =>
+          frame.includes('20 results · more available') &&
+          frame.includes('Results 1/20') &&
+          frame.includes('hit-01')
+      );
+      expect(first).toContain('n/p page');
+      expect(first).not.toContain('hit-21');
+
+      setup.mockInput.pressKey('n');
+      const second = await setup.waitForFrame(
+        (frame) =>
+          frame.includes('40 results · more available') &&
+          frame.includes('hit-21') &&
+          frame.includes('Results 21/40')
+      );
+      expect(second).not.toContain('hit-01');
+
+      setup.mockInput.pressKey('p');
+      const back = await setup.waitForFrame(
+        (frame) =>
+          frame.includes('hit-01') &&
+          frame.includes('Results 1/40') &&
+          frame.includes('40 results · more available')
+      );
+      expect(back).not.toContain('hit-21');
+    } finally {
+      globalThis.fetch = originalFetch;
+      setup.renderer.destroy();
+    }
+  });
+
+  test('prefetches the next 20 results five items before the last loaded row', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-search-ahead-'));
+    temporary.push(root);
+    const paths = testPaths(join(root, 'project'), join(root, 'home'));
+    const catalog = join(root, 'catalog');
+    await writeSkill(catalog, 'remote-one', { readme: '# Ahead preview' });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        const limit = Number(url.searchParams.get('limit') || '20');
+        return Response.json({
+          skills: Array.from({ length: limit }, (_, index) => {
+            const name = `hit-${String(index + 1).padStart(2, '0')}`;
+            return {
+              id: `local/${name}`,
+              name,
+              source: catalog,
+              installs: limit - index,
+            };
+          }),
+        });
+      },
+      { preconnect: originalFetch.preconnect }
+    );
+
+    const setup = await testRender(() => <App paths={paths} />, {
+      width: 120,
+      height: 30,
+      kittyKeyboard: true,
+    });
+    try {
+      await setup.waitForFrame((frame) => frame.includes('Project 0'));
+      setup.mockInput.pressKey('i');
+      await setup.mockInput.typeText('page');
+      setup.mockInput.pressEnter();
+      await setup.waitForFrame(
+        (frame) => frame.includes('20 results · more available') && frame.includes('Results 1/20')
+      );
+
+      for (let step = 0; step < 14; step++) {
+        setup.mockInput.pressKey('j');
+        await setup.waitForFrame((frame) => frame.includes(`Results ${step + 2}/`));
+      }
+      const prefetched = await setup.waitForFrame(
+        (frame) => frame.includes('40 results · more available') && frame.includes('Results 15/40')
+      );
+      expect(prefetched).toContain('hit-15');
+    } finally {
+      globalThis.fetch = originalFetch;
+      setup.renderer.destroy();
+    }
+  });
+
+  test('keeps the result list scrollable and fills a tall screen 20 at a time', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-search-scroll-'));
+    temporary.push(root);
+    const paths = testPaths(join(root, 'project'), join(root, 'home'));
+    const catalog = join(root, 'catalog');
+    await writeSkill(catalog, 'remote-one', { readme: '# Scroll preview' });
+
+    const originalFetch = globalThis.fetch;
+    const limits: number[] = [];
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        const limit = Number(url.searchParams.get('limit') || '20');
+        limits.push(limit);
+        return Response.json({
+          skills: Array.from({ length: limit }, (_, index) => {
+            const name = `hit-${String(index + 1).padStart(2, '0')}`;
+            return {
+              id: `local/${name}`,
+              name,
+              source: catalog,
+              installs: limit - index,
+            };
+          }),
+        });
+      },
+      { preconnect: originalFetch.preconnect }
+    );
+
+    const setup = await testRender(() => <App paths={paths} />, {
+      width: 120,
+      height: 60,
+      kittyKeyboard: true,
+    });
+    try {
+      await setup.waitForFrame((frame) => frame.includes('Project 0'));
+      setup.mockInput.pressKey('i');
+      await setup.mockInput.typeText('page');
+      setup.mockInput.pressEnter();
+
+      const filled = await setup.waitForFrame(
+        (frame) =>
+          frame.includes('40 results · more available') &&
+          frame.includes('hit-01') &&
+          frame.includes('hit-21')
+      );
+      expect(limits.every((limit) => limit % 20 === 0)).toBe(true);
+      expect(filled).toContain('Results');
+    } finally {
+      globalThis.fetch = originalFetch;
+      setup.renderer.destroy();
+    }
+  });
+
   test('shows the absolute path and waits for confirmation before delete', async () => {
     const root = await mkdtemp(join(tmpdir(), 'skillsui-delete-app-'));
     temporary.push(root);
