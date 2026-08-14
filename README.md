@@ -9,7 +9,7 @@ There is no separate database.
 Release binaries support macOS and glibc Linux on ARM64 and x64.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/egortokarev/skillsui/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/gregor-tokarev/skillsui/main/install.sh | sh
 ```
 
 The installer verifies the SHA-256 checksum and writes `skillsui` to `~/.local/bin`. Override the
@@ -51,7 +51,7 @@ back to `SKILL.md`, before installation.
 The `vercel-labs/skills` repository is pinned as a Git submodule. Clone it with the project:
 
 ```sh
-git clone --recurse-submodules https://github.com/egortokarev/skillsui.git
+git clone --recurse-submodules https://github.com/gregor-tokarev/skillsui.git
 cd skillsui
 bun install
 bun run dev

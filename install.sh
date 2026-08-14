@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repository="${SKILLSUI_REPOSITORY:-egortokarev/skillsui}"
+repository="${SKILLSUI_REPOSITORY:-gregor-tokarev/skillsui}"
 version="${SKILLSUI_VERSION:-latest}"
 install_dir="${SKILLSUI_INSTALL_DIR:-$HOME/.local/bin}"
 
