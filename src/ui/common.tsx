@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 
 import { homedir } from 'node:os';
-import { For } from 'solid-js';
+import { For, createEffect, createSignal, onCleanup } from 'solid-js';
 
 export const COLORS = {
   bg: '#111318',
@@ -34,6 +34,26 @@ export function fit(text: string, width: number): string {
   if (width <= 0) return '';
   if (text.length <= width) return text;
   return `${text.slice(0, Math.max(0, width - 1))}…`;
+}
+
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const SPINNER_INTERVAL_MS = 90;
+
+/** Ticks only while `active` is true, so idle screens stay static. */
+export function useSpinnerFrame(active: () => boolean): () => string {
+  const [tick, setTick] = createSignal(0);
+  createEffect(() => {
+    if (!active()) return;
+    const timer = setInterval(() => setTick((current) => current + 1), SPINNER_INTERVAL_MS);
+    onCleanup(() => clearInterval(timer));
+  });
+  return () => SPINNER_FRAMES[tick() % SPINNER_FRAMES.length]!;
+}
+
+/** Inline spinner for `text` children; renders nothing when inactive. */
+export function Spinner(props: { active: boolean; fg?: string }) {
+  const frame = useSpinnerFrame(() => props.active);
+  return <span style={{ fg: props.fg ?? COLORS.active }}>{props.active ? `${frame()} ` : ''}</span>;
 }
 
 export function HintLine(props: { hints: Array<readonly [string, string]>; separator?: string }) {
