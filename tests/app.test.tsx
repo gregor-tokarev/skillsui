@@ -149,6 +149,64 @@ describe('OpenTUI app', () => {
     }
   });
 
+  test('skips the previous preview fetch when moving off a search row', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-preview-cancel-'));
+    temporary.push(root);
+    const paths = testPaths(join(root, 'project'), join(root, 'home'));
+    const catalog = join(root, 'catalog');
+    await writeSkill(catalog, 'remote-one', { readme: '# Cancelled preview' });
+    await writeSkill(catalog, 'remote-two', { body: '# Kept preview' });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = Object.assign(
+      async (..._args: Parameters<typeof fetch>) =>
+        Response.json({
+          skills: [
+            {
+              id: 'local/remote-one',
+              name: 'remote-one',
+              source: catalog,
+              installs: 42,
+            },
+            {
+              id: 'local/remote-two',
+              name: 'remote-two',
+              source: catalog,
+              installs: 21,
+            },
+          ],
+        }),
+      { preconnect: originalFetch.preconnect }
+    );
+
+    const setup = await testRender(() => <App paths={paths} />, {
+      width: 120,
+      height: 30,
+      kittyKeyboard: true,
+    });
+    try {
+      await waitForAppFrame(setup, (frame) => frame.includes('Project 0'));
+      setup.mockInput.pressKey('i');
+      await setup.mockInput.typeText('remote');
+      setup.mockInput.pressEnter();
+
+      await waitForAppFrame(
+        setup,
+        (frame) => frame.includes('Results') && frame.includes('remote-two')
+      );
+      setup.mockInput.pressKey('j');
+
+      const kept = await waitForAppFrame(
+        setup,
+        (frame) => frame.includes('Preview remote-two') && frame.includes('# Kept preview')
+      );
+      expect(kept).not.toContain('# Cancelled preview');
+    } finally {
+      globalThis.fetch = originalFetch;
+      setup.renderer.destroy();
+    }
+  });
+
   test('pages past the first 20 search results', async () => {
     const root = await mkdtemp(join(tmpdir(), 'skillsui-search-page-'));
     temporary.push(root);
@@ -330,6 +388,41 @@ describe('OpenTUI app', () => {
       expect(filled).toContain('Results');
     } finally {
       globalThis.fetch = originalFetch;
+      setup.renderer.destroy();
+    }
+  });
+
+  test('edits the fork name and cancels without touching the skill', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-fork-app-'));
+    temporary.push(root);
+    const paths = testPaths(join(root, 'project'), join(root, 'home'));
+    await writeSkill(paths.scopes.project.skillsDir, 'fork-source');
+
+    const setup = await testRender(() => <App paths={paths} />, {
+      width: 120,
+      height: 30,
+      kittyKeyboard: true,
+    });
+    try {
+      await waitForAppFrame(setup, (frame) => frame.includes('fork-source'));
+      setup.mockInput.pressKey('f', { shift: true });
+      const opened = await waitForAppFrame(
+        setup,
+        (frame) => frame.includes('Fork fork-source') && frame.includes('Name: fork-source-fork_')
+      );
+      expect(opened).toContain('Enter fork');
+
+      setup.mockInput.pressBackspace();
+      await setup.mockInput.typeText('2');
+      await waitForAppFrame(setup, (frame) => frame.includes('Name: fork-source-for2_'));
+
+      setup.mockInput.pressEscape();
+      const cancelled = await waitForAppFrame(setup, (frame) => frame.includes('Cancelled'));
+      expect(cancelled).not.toContain('Fork fork-source');
+      expect(await pathExists(join(paths.scopes.project.skillsDir, 'fork-source-for2'))).toBe(
+        false
+      );
+    } finally {
       setup.renderer.destroy();
     }
   });
