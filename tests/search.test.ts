@@ -165,6 +165,32 @@ describe('preview debounce and abort', () => {
     }
   });
 
+  test('loads SKILL.md from the skills.sh download API without using README.md', async () => {
+    const calls: string[] = [];
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL) => {
+        calls.push(input instanceof Request ? input.url : input.toString());
+        return Response.json({
+          files: [
+            { path: 'README.md', contents: '# README preview' },
+            { path: 'SKILL.md', contents: '# SKILL preview' },
+          ],
+        });
+      },
+      { preconnect: originalFetch.preconnect }
+    );
+
+    const preview = await loadInstallPreview({
+      name: 'skill name',
+      slug: 'owner/repo/skill name',
+      source: 'owner/repo',
+      installs: 1,
+    });
+
+    expect(new URL(calls[0]!).pathname).toBe('/api/download/owner/repo/skill%20name');
+    expect(preview).toEqual({ contents: '# SKILL preview', fileName: 'SKILL.md' });
+  });
+
   test('aborts an in-flight git clone when the signal fires', async () => {
     const server = createServer((socket) => {
       socket.pause();

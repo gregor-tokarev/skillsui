@@ -51,6 +51,10 @@ export function createKeyBindings({
 
   function handleModalKey(key: KeyEvent, activeModal: Modal): void {
     key.preventDefault();
+    if (key.name.toLowerCase() === 'q') {
+      quit();
+      return;
+    }
     if (key.name === 'escape') {
       if (activeModal.type === 'search' && activeModal.phase === 'results') {
         search.returnToSearch(activeModal);

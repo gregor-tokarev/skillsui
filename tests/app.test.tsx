@@ -69,16 +69,31 @@ describe('OpenTUI app', () => {
     const paths = testPaths(join(root, 'project'), join(root, 'home'));
     const catalog = join(root, 'catalog');
     await writeSkill(catalog, 'remote-one', {
-      readme: '# Install modal preview',
+      body: '# Install modal preview',
+      readme: '# README should not be previewed',
     });
     await writeSkill(catalog, 'remote-two', {
-      body: '# SKILL fallback preview',
+      body: '# Second SKILL preview',
     });
 
     const originalFetch = globalThis.fetch;
     globalThis.fetch = Object.assign(
-      async (..._args: Parameters<typeof fetch>) =>
-        Response.json({
+      async (input: RequestInfo | URL) => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        if (url.pathname.startsWith('/api/download/')) {
+          const name = url.pathname.split('/').at(-1);
+          return Response.json({
+            files: [
+              { path: 'README.md', contents: '# README should not be previewed' },
+              {
+                path: 'SKILL.md',
+                contents:
+                  name === 'remote-one' ? '# Install modal preview' : '# Second SKILL preview',
+              },
+            ],
+          });
+        }
+        return Response.json({
           skills: [
             {
               id: 'local/remote-one',
@@ -93,7 +108,8 @@ describe('OpenTUI app', () => {
               installs: 21,
             },
           ],
-        }),
+        });
+      },
       { preconnect: originalFetch.preconnect }
     );
 
@@ -116,18 +132,19 @@ describe('OpenTUI app', () => {
           frame.includes('# Install modal preview')
       );
       expect(results).toContain('Results');
-      expect(results).toContain('README.md');
+      expect(results).toContain('SKILL.md');
+      expect(results).not.toContain('# README should not be previewed');
       expect(results).toContain('PageUp/PageDown preview');
 
       setup.mockInput.pressKey('j');
-      const fallback = await waitForAppFrame(
+      const second = await waitForAppFrame(
         setup,
         (frame) =>
           frame.includes('Preview remote-two') &&
           frame.includes('SKILL.md') &&
-          frame.includes('# SKILL fallback preview')
+          frame.includes('# Second SKILL preview')
       );
-      expect(fallback).not.toContain('# Install modal preview');
+      expect(second).not.toContain('# Install modal preview');
 
       setup.mockInput.pressEscape();
       const search = await waitForAppFrame(
@@ -154,13 +171,25 @@ describe('OpenTUI app', () => {
     temporary.push(root);
     const paths = testPaths(join(root, 'project'), join(root, 'home'));
     const catalog = join(root, 'catalog');
-    await writeSkill(catalog, 'remote-one', { readme: '# Cancelled preview' });
+    await writeSkill(catalog, 'remote-one', { body: '# Cancelled preview' });
     await writeSkill(catalog, 'remote-two', { body: '# Kept preview' });
 
     const originalFetch = globalThis.fetch;
     globalThis.fetch = Object.assign(
-      async (..._args: Parameters<typeof fetch>) =>
-        Response.json({
+      async (input: RequestInfo | URL) => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        if (url.pathname.startsWith('/api/download/')) {
+          const name = url.pathname.split('/').at(-1);
+          return Response.json({
+            files: [
+              {
+                path: 'SKILL.md',
+                contents: name === 'remote-one' ? '# Cancelled preview' : '# Kept preview',
+              },
+            ],
+          });
+        }
+        return Response.json({
           skills: [
             {
               id: 'local/remote-one',
@@ -175,7 +204,8 @@ describe('OpenTUI app', () => {
               installs: 21,
             },
           ],
-        }),
+        });
+      },
       { preconnect: originalFetch.preconnect }
     );
 
