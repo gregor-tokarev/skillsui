@@ -28,6 +28,8 @@ export interface SearchModal {
   results: SearchSkill[];
   index: number;
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
   message: string;
   preview: string;
   previewFile: string;
@@ -88,6 +90,11 @@ export function ModalFrame(props: { title: string; danger: boolean; children: JS
       </box>
     </>
   );
+}
+
+/** Visible search-result rows after the modal chrome and the status line. */
+export function searchResultsCapacity(terminalWidth: number, terminalHeight: number): number {
+  return Math.max(4, modalGeometry(terminalWidth, terminalHeight).height - 10);
 }
 
 /** Inner height of a modal after the frame's border and padding. */
@@ -333,6 +340,7 @@ export function SearchResultsView(props: { modal: SearchModal }) {
       <HintLine
         hints={[
           ['j/k', 'move'],
+          ['n/p', 'page'],
           ['Enter', 'install'],
           ['i', 'project'],
           ['I', 'global'],
