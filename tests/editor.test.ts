@@ -11,8 +11,8 @@ afterEach(async () => {
 });
 
 describe('editor launcher', () => {
-  test('requires $EDITOR', async () => {
-    await expect(openSkillFolderInEditor('/tmp/example', { editor: '' })).rejects.toThrow(
+  test('requires $EDITOR', () => {
+    expect(openSkillFolderInEditor('/tmp/example', { editor: '' })).rejects.toThrow(
       '$EDITOR is not set'
     );
   });
