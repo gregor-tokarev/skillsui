@@ -1,4 +1,5 @@
 import type { Setter } from 'solid-js';
+import { openSkillFolderInEditor } from '../editor.ts';
 import type { AppPaths } from '../paths.ts';
 import {
   deleteSkills,
@@ -16,6 +17,8 @@ export interface SkillActionsDeps {
   paths: AppPaths;
   library: LibraryState;
   setModal: Setter<Modal | null>;
+  suspend?: () => void;
+  resume?: () => void;
 }
 
 export type SkillActions = ReturnType<typeof createSkillActions>;
@@ -25,7 +28,13 @@ export type SkillActions = ReturnType<typeof createSkillActions>;
  * confirmation when files would be overwritten, and hands the work to the
  * library's operation runner.
  */
-export function createSkillActions({ paths, library, setModal }: SkillActionsDeps) {
+export function createSkillActions({
+  paths,
+  library,
+  setModal,
+  suspend,
+  resume,
+}: SkillActionsDeps) {
   const { announce, actionTargets, runOperation, setBusy } = library;
 
   function openDelete(): void {
@@ -135,5 +144,24 @@ export function createSkillActions({ paths, library, setModal }: SkillActionsDep
     );
   }
 
-  return { openDelete, startMove, openFork, submitFork, startUpdate };
+  async function openEditor(): Promise<void> {
+    const skill = library.currentSkill();
+    if (!skill) {
+      announce('No skill to open', true);
+      return;
+    }
+
+    setBusy(true);
+    announce(`Opening ${skill.folderName} in $EDITOR`);
+    try {
+      await openSkillFolderInEditor(skill.path, { suspend, resume });
+      announce(`Opened ${skill.folderName} in $EDITOR`);
+    } catch (error) {
+      announce((error as Error).message, true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return { openDelete, startMove, openFork, submitFork, startUpdate, openEditor };
 }

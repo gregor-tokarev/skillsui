@@ -20,7 +20,13 @@ export function App(props: { paths: AppPaths }) {
 
   const library = createLibraryState(props.paths, { onOperationStart: () => setModal(null) });
   const search = createSearchController({ paths: props.paths, library, modal, setModal });
-  const actions = createSkillActions({ paths: props.paths, library, setModal });
+  const actions = createSkillActions({
+    paths: props.paths,
+    library,
+    setModal,
+    suspend: () => renderer.suspend(),
+    resume: () => renderer.resume(),
+  });
 
   useKeyboard(
     createKeyBindings({

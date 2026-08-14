@@ -144,6 +144,7 @@ export function createKeyBindings({
     if (keyName === 'm' && key.shift) return void actions.startMove();
     if (keyName === 'f' && key.shift) return actions.openFork();
     if (keyName === 'u' && key.shift) return actions.startUpdate();
+    if (keyName === 'o') return void actions.openEditor();
     if (keyName === 'i') return search.openSearch(installScope(key));
     if (keyName === 'r') return void library.refresh(true);
   };

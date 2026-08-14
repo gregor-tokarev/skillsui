@@ -39,6 +39,7 @@ Run `skillsui` from a project root. Pass another root with `skillsui --project p
 | `M`                   | Move selected skills to the other scope                 |
 | `F`                   | Fork one skill under a new local name                   |
 | `U`                   | Update selected tracked skills                          |
+| `o`                   | Open the skill folder with `$EDITOR`                    |
 | `i` / `I`             | Search skills.sh and install in project or global scope |
 | `n` / `p`             | Next / previous page of search results                  |
 | `PageUp` / `PageDown` | Scroll the selected search result's install preview     |

@@ -18,6 +18,36 @@ function qKey(): KeyEvent {
   });
 }
 
+function keyEvent(name: string): KeyEvent {
+  return new KeyEvent({
+    name,
+    ctrl: false,
+    meta: false,
+    shift: false,
+    option: false,
+    sequence: name,
+    number: false,
+    raw: name,
+    eventType: 'press',
+    source: 'raw',
+  });
+}
+
+describe('main key bindings', () => {
+  test('o opens the current skill in the editor', () => {
+    let openCalls = 0;
+    const bindings = createKeyBindings({
+      modal: () => null,
+      library: { busy: () => false },
+      actions: { openEditor: () => void openCalls++ },
+    } as unknown as KeyBindingsDeps);
+
+    bindings(keyEvent('o'));
+
+    expect(openCalls).toBe(1);
+  });
+});
+
 describe('modal key bindings', () => {
   test.each([
     ['confirmation', { type: 'confirm' }],
