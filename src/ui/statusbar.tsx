@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 
 import type { SkillRecord } from '../types.ts';
-import { COLORS, HintLine, shortenHome } from './common.tsx';
+import { COLORS, HintLine, Spinner, shortenHome } from './common.tsx';
 
 export function StatusBar(props: {
   status: string;
@@ -18,12 +18,11 @@ export function StatusBar(props: {
 
   return (
     <box height={3} flexDirection="column">
-      <text
-        height={1}
-        truncate={true}
-        fg={props.busy || props.alert ? COLORS.warning : COLORS.text}
-      >
-        {props.status}
+      <text height={1} truncate={true}>
+        <Spinner active={props.busy} fg={COLORS.warning} />
+        <span style={{ fg: props.busy || props.alert ? COLORS.warning : COLORS.text }}>
+          {props.status}
+        </span>
       </text>
       <text height={1} fg={COLORS.dim} truncate={true}>
         {detail()}

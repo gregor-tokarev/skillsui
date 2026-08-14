@@ -4,7 +4,7 @@ import { For, Show, type JSX } from 'solid-js';
 import { useTerminalDimensions } from '@opentui/solid';
 import type { ScopeId, SkillRecord } from '../types.ts';
 import type { SearchSkill } from '../install.ts';
-import { COLORS, HintLine, fit, formatInstalls } from './common.tsx';
+import { COLORS, HintLine, Spinner, fit, formatInstalls } from './common.tsx';
 
 export interface ConfirmModal {
   type: 'confirm';
@@ -172,8 +172,9 @@ export function SearchQueryView(props: { modal: SearchModal }) {
           <span style={{ fg: COLORS.active }}>_</span>
         </text>
         <box height={1} />
-        <text fg={COLORS.dim} truncate={true}>
-          {props.modal.message}
+        <text truncate={true}>
+          <Spinner active={props.modal.loading} />
+          <span style={{ fg: COLORS.dim }}>{props.modal.message}</span>
         </text>
       </box>
       <HintLine
@@ -248,8 +249,9 @@ export function SearchResultsView(props: { modal: SearchModal }) {
           paddingX={1}
           overflow="hidden"
         >
-          <text fg={COLORS.dim} height={1} truncate={true}>
-            {props.modal.message}
+          <text height={1} truncate={true}>
+            <Spinner active={props.modal.loading || props.modal.loadingMore} />
+            <span style={{ fg: COLORS.dim }}>{props.modal.message}</span>
           </text>
           <For each={rows()}>
             {(row) => {
@@ -324,7 +326,12 @@ export function SearchResultsView(props: { modal: SearchModal }) {
             </text>
             <Show
               when={props.modal.previewState !== 'loading'}
-              fallback={<text fg={COLORS.dim}>Loading preview…</text>}
+              fallback={
+                <text>
+                  <Spinner active={true} />
+                  <span style={{ fg: COLORS.dim }}>Loading preview…</span>
+                </text>
+              }
             >
               <text
                 fg={props.modal.previewState === 'error' ? COLORS.warning : COLORS.text}

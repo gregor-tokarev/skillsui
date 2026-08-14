@@ -69,6 +69,7 @@ export function App(props: { paths: AppPaths }) {
   const [status, setStatus] = createSignal('Loading skills');
   const [statusTone, setStatusTone] = createSignal<'idle' | 'alert'>('idle');
   const [busy, setBusy] = createSignal(false);
+  const [loading, setLoading] = createSignal(false);
   const [modal, setModal] = createSignal<Modal | null>(null);
   const installPreviewCache = new Map<string, InstallPreview>();
   let disposed = false;
@@ -119,6 +120,7 @@ export function App(props: { paths: AppPaths }) {
   }
 
   async function refresh(check = true): Promise<void> {
+    setLoading(true);
     try {
       const data = await discoverAll(props.paths);
       if (disposed) return;
@@ -130,6 +132,8 @@ export function App(props: { paths: AppPaths }) {
       if (check) void runBackgroundCheck(data);
     } catch (error) {
       announce((error as Error).message, true);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -738,7 +742,7 @@ export function App(props: { paths: AppPaths }) {
       <StatusBar
         status={status()}
         alert={statusTone() === 'alert'}
-        busy={busy()}
+        busy={busy() || loading()}
         skill={currentSkill()}
       />
 
