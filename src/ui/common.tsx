@@ -17,7 +17,6 @@ export const COLORS = {
   cursor: '#2f3e5c',
   selected: '#26354a',
   backdrop: '#00000059',
-  shadow: '#000000a6',
 };
 
 export function shortenHome(path: string): string {

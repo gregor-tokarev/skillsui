@@ -69,15 +69,6 @@ export function ModalFrame(props: { title: string; danger: boolean; children: JS
       />
       <box
         position="absolute"
-        left={geometry().left + 2}
-        top={geometry().top + 1}
-        width={geometry().width}
-        height={geometry().height}
-        zIndex={15}
-        backgroundColor={COLORS.shadow}
-      />
-      <box
-        position="absolute"
         left={geometry().left}
         top={geometry().top}
         width={geometry().width}
