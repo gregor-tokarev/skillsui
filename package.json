@@ -1,0 +1,34 @@
+{
+  "name": "skillsui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "skillsui": "./src/index.tsx"
+  },
+  "scripts": {
+    "dev": "bun run src/index.tsx",
+    "test": "bun test --preload=@opentui/solid/preload tests/*.test.ts*",
+    "typecheck": "tsc --noEmit",
+    "build": "bun run scripts/build.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.2.0",
+    "@opentui/core": "0.5.2",
+    "@opentui/solid": "0.5.2",
+    "@vercel/detect-agent": "^1.2.1",
+    "picocolors": "^1.1.1",
+    "simple-git": "^3.36.0",
+    "solid-js": "1.9.12",
+    "tar": "^7.5.20",
+    "xdg-basedir": "^5.1.0",
+    "yaml": "^2.8.3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3"
+  }
+}
