@@ -2,8 +2,33 @@
 
 import { For, Show } from 'solid-js';
 import { useTerminalDimensions } from '@opentui/solid';
-import type { ScopeId, SkillRecord, UpdateState } from '../types.ts';
+import type { ScopeId, ScopeSnapshot, SkillRecord, UpdateState } from '../types.ts';
 import { COLORS, fit } from './common.tsx';
+
+/** Skill rows a pane fits after the header, status bar, borders, and padding. */
+export function paneCapacity(terminalHeight: number): number {
+  return Math.max(3, terminalHeight - 10);
+}
+
+/** The slice of a scope's skills that keeps the cursor centred. */
+export function paneWindow(skills: SkillRecord[], cursor: number, capacity: number): SkillRecord[] {
+  const start = Math.max(0, Math.min(cursor - Math.floor(capacity / 2), skills.length - capacity));
+  return skills.slice(start, start + capacity);
+}
+
+export function paneTitle(
+  scope: ScopeId,
+  snapshot: ScopeSnapshot | undefined,
+  cursor: number,
+  capacity: number
+): string {
+  const count = snapshot?.skills.length || 0;
+  const hidden = snapshot?.hiddenLockEntries || 0;
+  const parts = [`${scope === 'project' ? 'Project' : 'Global'} ${count}`];
+  if (count > capacity) parts.push(`${cursor + 1}/${count}`);
+  if (hidden) parts.push(`${hidden} hidden`);
+  return parts.join(' · ');
+}
 
 function SkillRow(props: {
   skill: SkillRecord;

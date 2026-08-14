@@ -334,6 +334,41 @@ describe('OpenTUI app', () => {
     }
   });
 
+  test('edits the fork name and cancels without touching the skill', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-fork-app-'));
+    temporary.push(root);
+    const paths = testPaths(join(root, 'project'), join(root, 'home'));
+    await writeSkill(paths.scopes.project.skillsDir, 'fork-source');
+
+    const setup = await testRender(() => <App paths={paths} />, {
+      width: 120,
+      height: 30,
+      kittyKeyboard: true,
+    });
+    try {
+      await waitForAppFrame(setup, (frame) => frame.includes('fork-source'));
+      setup.mockInput.pressKey('f', { shift: true });
+      const opened = await waitForAppFrame(
+        setup,
+        (frame) => frame.includes('Fork fork-source') && frame.includes('Name: fork-source-fork_')
+      );
+      expect(opened).toContain('Enter fork');
+
+      setup.mockInput.pressBackspace();
+      await setup.mockInput.typeText('2');
+      await waitForAppFrame(setup, (frame) => frame.includes('Name: fork-source-for2_'));
+
+      setup.mockInput.pressEscape();
+      const cancelled = await waitForAppFrame(setup, (frame) => frame.includes('Cancelled'));
+      expect(cancelled).not.toContain('Fork fork-source');
+      expect(await pathExists(join(paths.scopes.project.skillsDir, 'fork-source-for2'))).toBe(
+        false
+      );
+    } finally {
+      setup.renderer.destroy();
+    }
+  });
+
   test('shows the absolute path and waits for confirmation before delete', async () => {
     const root = await mkdtemp(join(tmpdir(), 'skillsui-delete-app-'));
     temporary.push(root);
