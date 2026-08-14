@@ -9,6 +9,24 @@ export function testPaths(project: string, home: string): AppPaths {
   return paths;
 }
 
+// waitForFrame stops as soon as the test renderer is idle. Discovery and
+// search finish after that, so tests have to keep polling on their own.
+export async function waitForAppFrame(
+  setup: { flush: () => Promise<void>; captureCharFrame: () => string },
+  predicate: (frame: string) => boolean,
+  timeoutMs = 3000
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let frame = setup.captureCharFrame();
+  while (Date.now() < deadline) {
+    await setup.flush();
+    frame = setup.captureCharFrame();
+    if (predicate(frame)) return frame;
+    await Bun.sleep(10);
+  }
+  throw new Error(`Timed out waiting for frame:\n${frame}`);
+}
+
 export async function writeSkill(
   skillsDir: string,
   folder: string,

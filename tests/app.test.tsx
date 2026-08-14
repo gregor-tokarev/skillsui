@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { App } from '../src/app.tsx';
 import { pathExists } from '../src/fs-utils.ts';
-import { testPaths, writeSkill } from './helpers.ts';
+import { testPaths, waitForAppFrame, writeSkill } from './helpers.ts';
 
 const temporary: string[] = [];
 
@@ -27,7 +27,8 @@ describe('OpenTUI app', () => {
 
     const setup = await testRender(() => <App paths={paths} />, { width: 120, height: 30 });
     try {
-      const initial = await setup.waitForFrame(
+      const initial = await waitForAppFrame(
+        setup,
         (frame) => frame.includes('project-one') && frame.includes('global-one')
       );
       expect(initial).toContain('Project 1');
@@ -51,7 +52,7 @@ describe('OpenTUI app', () => {
 
     const setup = await testRender(() => <App paths={paths} />, { width: 120, height: 30 });
     try {
-      const frame = await setup.waitForFrame((text) => text.includes('home-skill'));
+      const frame = await waitForAppFrame(setup, (text) => text.includes('home-skill'));
       expect(frame).toContain('Global 1');
       expect(frame).not.toContain('Project');
       expect(frame).toContain('i install');
@@ -102,12 +103,13 @@ describe('OpenTUI app', () => {
       kittyKeyboard: true,
     });
     try {
-      await setup.waitForFrame((frame) => frame.includes('Project 0'));
+      await waitForAppFrame(setup, (frame) => frame.includes('Project 0'));
       setup.mockInput.pressKey('i');
       await setup.mockInput.typeText('remote');
       setup.mockInput.pressEnter();
 
-      const results = await setup.waitForFrame(
+      const results = await waitForAppFrame(
+        setup,
         (frame) =>
           frame.includes('Install in project scope') &&
           frame.includes('Preview remote-one') &&
@@ -118,7 +120,8 @@ describe('OpenTUI app', () => {
       expect(results).toContain('PageUp/PageDown preview');
 
       setup.mockInput.pressKey('j');
-      const fallback = await setup.waitForFrame(
+      const fallback = await waitForAppFrame(
+        setup,
         (frame) =>
           frame.includes('Preview remote-two') &&
           frame.includes('SKILL.md') &&
@@ -127,7 +130,8 @@ describe('OpenTUI app', () => {
       expect(fallback).not.toContain('# Install modal preview');
 
       setup.mockInput.pressEscape();
-      const search = await setup.waitForFrame(
+      const search = await waitForAppFrame(
+        setup,
         (frame) =>
           frame.includes('Install in project scope') &&
           frame.includes('Search: remote_') &&
@@ -178,12 +182,13 @@ describe('OpenTUI app', () => {
       kittyKeyboard: true,
     });
     try {
-      await setup.waitForFrame((frame) => frame.includes('Project 0'));
+      await waitForAppFrame(setup, (frame) => frame.includes('Project 0'));
       setup.mockInput.pressKey('i');
       await setup.mockInput.typeText('page');
       setup.mockInput.pressEnter();
 
-      const first = await setup.waitForFrame(
+      const first = await waitForAppFrame(
+        setup,
         (frame) =>
           frame.includes('20 results · more available') &&
           frame.includes('Results 1/20') &&
@@ -193,7 +198,8 @@ describe('OpenTUI app', () => {
       expect(first).not.toContain('hit-21');
 
       setup.mockInput.pressKey('n');
-      const second = await setup.waitForFrame(
+      const second = await waitForAppFrame(
+        setup,
         (frame) =>
           frame.includes('40 results · more available') &&
           frame.includes('hit-21') &&
@@ -202,7 +208,8 @@ describe('OpenTUI app', () => {
       expect(second).not.toContain('hit-01');
 
       setup.mockInput.pressKey('p');
-      const back = await setup.waitForFrame(
+      const back = await waitForAppFrame(
+        setup,
         (frame) =>
           frame.includes('hit-01') &&
           frame.includes('Results 1/40') &&
@@ -248,19 +255,21 @@ describe('OpenTUI app', () => {
       kittyKeyboard: true,
     });
     try {
-      await setup.waitForFrame((frame) => frame.includes('Project 0'));
+      await waitForAppFrame(setup, (frame) => frame.includes('Project 0'));
       setup.mockInput.pressKey('i');
       await setup.mockInput.typeText('page');
       setup.mockInput.pressEnter();
-      await setup.waitForFrame(
+      await waitForAppFrame(
+        setup,
         (frame) => frame.includes('20 results · more available') && frame.includes('Results 1/20')
       );
 
       for (let step = 0; step < 14; step++) {
         setup.mockInput.pressKey('j');
-        await setup.waitForFrame((frame) => frame.includes(`Results ${step + 2}/`));
+        await waitForAppFrame(setup, (frame) => frame.includes(`Results ${step + 2}/`));
       }
-      const prefetched = await setup.waitForFrame(
+      const prefetched = await waitForAppFrame(
+        setup,
         (frame) => frame.includes('40 results · more available') && frame.includes('Results 15/40')
       );
       expect(prefetched).toContain('hit-15');
@@ -305,12 +314,13 @@ describe('OpenTUI app', () => {
       kittyKeyboard: true,
     });
     try {
-      await setup.waitForFrame((frame) => frame.includes('Project 0'));
+      await waitForAppFrame(setup, (frame) => frame.includes('Project 0'));
       setup.mockInput.pressKey('i');
       await setup.mockInput.typeText('page');
       setup.mockInput.pressEnter();
 
-      const filled = await setup.waitForFrame(
+      const filled = await waitForAppFrame(
+        setup,
         (frame) =>
           frame.includes('40 results · more available') &&
           frame.includes('hit-01') &&
@@ -332,9 +342,10 @@ describe('OpenTUI app', () => {
 
     const setup = await testRender(() => <App paths={paths} />, { width: 120, height: 30 });
     try {
-      await setup.waitForFrame((frame) => frame.includes('delete-from-ui'));
+      await waitForAppFrame(setup, (frame) => frame.includes('delete-from-ui'));
       setup.mockInput.pressKey('d', { shift: true });
-      const confirmation = await setup.waitForFrame(
+      const confirmation = await waitForAppFrame(
+        setup,
         (frame) =>
           frame.includes('Delete 1 skill?') &&
           frame.includes(`${paths.projectRoot}/.agents/`) &&
