@@ -43,6 +43,25 @@ describe('OpenTUI app', () => {
     }
   });
 
+  test('hides the project pane when opened from the home directory', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-home-app-'));
+    temporary.push(root);
+    const paths = testPaths(root, root);
+    await writeSkill(paths.scopes.global.skillsDir, 'home-skill');
+
+    const setup = await testRender(() => <App paths={paths} />, { width: 120, height: 30 });
+    try {
+      const frame = await setup.waitForFrame((text) => text.includes('home-skill'));
+      expect(frame).toContain('Global 1');
+      expect(frame).not.toContain('Project');
+      expect(frame).toContain('i install');
+      expect(frame).not.toContain('h/l pane');
+      expect(frame).not.toContain('M move');
+    } finally {
+      setup.renderer.destroy();
+    }
+  });
+
   test('previews the selected search result inside the install modal', async () => {
     const root = await mkdtemp(join(tmpdir(), 'skillsui-install-preview-'));
     temporary.push(root);

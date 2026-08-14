@@ -62,7 +62,12 @@ export function App(props: { paths: AppPaths }) {
   const renderer = useRenderer();
   const dimensions = useTerminalDimensions();
   const [snapshot, setSnapshot] = createSignal<AppSnapshot | null>(null);
-  const [activeScope, setActiveScope] = createSignal<ScopeId>('project');
+  const projectEnabled = () => props.paths.projectEnabled;
+  const visibleScopes = (): ScopeId[] =>
+    projectEnabled() ? (['project', 'global'] as ScopeId[]) : (['global'] as ScopeId[]);
+  const [activeScope, setActiveScope] = createSignal<ScopeId>(
+    props.paths.projectEnabled ? 'project' : 'global'
+  );
   const [cursor, setCursor] = createSignal<Record<ScopeId, number>>({ project: 0, global: 0 });
   const [selected, setSelected] = createSignal(new Set<string>());
   const [updates, setUpdates] = createSignal<Record<string, UpdateState>>({});
@@ -126,7 +131,11 @@ export function App(props: { paths: AppPaths }) {
       clampCursors(data);
       const existing = new Set(allSkills(data).map((skill) => skill.id));
       setSelected((previous) => new Set([...previous].filter((id) => existing.has(id))));
-      announce(`${data.project.skills.length} project, ${data.global.skills.length} global`);
+      announce(
+        projectEnabled()
+          ? `${data.project.skills.length} project, ${data.global.skills.length} global`
+          : `${data.global.skills.length} global`
+      );
       if (check) void runBackgroundCheck(data);
     } catch (error) {
       announce((error as Error).message, true);
@@ -175,6 +184,10 @@ export function App(props: { paths: AppPaths }) {
   }
 
   async function startMove(): Promise<void> {
+    if (!projectEnabled()) {
+      announce('Project scope is unavailable from the home directory', true);
+      return;
+    }
     const scope = activeScope();
     const targets = actionTargets(scope);
     if (targets.length === 0) {
@@ -617,7 +630,8 @@ export function App(props: { paths: AppPaths }) {
     } else if (isEnter(key)) {
       void installSelected(activeModal, activeModal.scope);
     } else if (key.name.toLowerCase() === 'i') {
-      void installSelected(activeModal, key.shift ? 'global' : 'project');
+      const scope = key.shift || !projectEnabled() ? 'global' : 'project';
+      void installSelected(activeModal, scope);
     }
   }
 
@@ -631,7 +645,7 @@ export function App(props: { paths: AppPaths }) {
     if (keyName === 'j' || keyName === 'down') return moveCursor(1);
     if (keyName === 'k' || keyName === 'up') return moveCursor(-1);
     if (keyName === 'h' || keyName === 'left') {
-      setActiveScope('project');
+      if (projectEnabled()) setActiveScope('project');
       return;
     }
     if (keyName === 'l' || keyName === 'right') {
@@ -653,7 +667,9 @@ export function App(props: { paths: AppPaths }) {
     if (keyName === 'm' && key.shift) return void startMove();
     if (keyName === 'f' && key.shift) return openFork();
     if (keyName === 'u' && key.shift) return startUpdate();
-    if (keyName === 'i') return openSearch(key.shift ? 'global' : 'project');
+    if (keyName === 'i') {
+      return openSearch(key.shift || !projectEnabled() ? 'global' : 'project');
+    }
     if (keyName === 'r') return void refresh(true);
   });
 
@@ -703,7 +719,7 @@ export function App(props: { paths: AppPaths }) {
     return active.phase === 'query' ? (
       <SearchQueryView modal={active} />
     ) : (
-      <SearchResultsView modal={active} />
+      <SearchResultsView modal={active} projectEnabled={projectEnabled()} />
     );
   };
 
@@ -719,12 +735,13 @@ export function App(props: { paths: AppPaths }) {
       </box>
 
       <box flexGrow={1} flexDirection="row" gap={1}>
-        <For each={['project', 'global'] as ScopeId[]}>
+        <For each={visibleScopes()}>
           {(scope) => (
             <SkillPane
               scope={scope}
               title={paneTitle(scope)}
               active={activeScope() === scope}
+              solo={!projectEnabled()}
               rows={paneRows(scope)}
               empty={scopeSkills(scope).length === 0}
               cursorId={currentSkill()?.id ?? null}
@@ -740,6 +757,7 @@ export function App(props: { paths: AppPaths }) {
         alert={statusTone() === 'alert'}
         busy={busy()}
         skill={currentSkill()}
+        projectEnabled={projectEnabled()}
       />
 
       <Show when={modal()}>

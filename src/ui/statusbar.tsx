@@ -8,6 +8,7 @@ export function StatusBar(props: {
   alert: boolean;
   busy: boolean;
   skill: SkillRecord | null;
+  projectEnabled?: boolean;
 }) {
   const detail = () => {
     const skill = props.skill;
@@ -30,18 +31,31 @@ export function StatusBar(props: {
       </text>
       <HintLine
         separator=" "
-        hints={[
-          ['j/k', 'move'],
-          ['h/l', 'pane'],
-          ['x', 'select'],
-          ['D', 'delete'],
-          ['M', 'move'],
-          ['F', 'fork'],
-          ['U', 'update'],
-          ['i/I', 'install'],
-          ['r', 'reload'],
-          ['q', 'quit'],
-        ]}
+        hints={
+          props.projectEnabled === false
+            ? [
+                ['j/k', 'move'],
+                ['x', 'select'],
+                ['D', 'delete'],
+                ['F', 'fork'],
+                ['U', 'update'],
+                ['i', 'install'],
+                ['r', 'reload'],
+                ['q', 'quit'],
+              ]
+            : [
+                ['j/k', 'move'],
+                ['h/l', 'pane'],
+                ['x', 'select'],
+                ['D', 'delete'],
+                ['M', 'move'],
+                ['F', 'fork'],
+                ['U', 'update'],
+                ['i/I', 'install'],
+                ['r', 'reload'],
+                ['q', 'quit'],
+              ]
+        }
       />
     </box>
   );

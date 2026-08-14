@@ -57,4 +57,16 @@ describe('skill discovery', () => {
     expect(snapshot.global.skills[0]?.scope).toBe('global');
     expect(snapshot.global.skills[0]?.previewPath.endsWith('SKILL.md')).toBe(true);
   });
+
+  test('ignores project scope when the project root is the home directory', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-home-root-'));
+    temporary.push(root);
+    const paths = testPaths(root, root);
+    await writeSkill(paths.scopes.global.skillsDir, 'home-skill');
+
+    expect(paths.projectEnabled).toBe(false);
+    const snapshot = await discoverAll(paths);
+    expect(snapshot.project.skills).toEqual([]);
+    expect(snapshot.global.skills.map((skill) => skill.folderName)).toEqual(['home-skill']);
+  });
 });

@@ -95,6 +95,13 @@ export async function moveSkills(
   skills: SkillRecord[],
   overwrite = false
 ): Promise<OperationResult> {
+  if (!paths.projectEnabled) {
+    return {
+      changed: 0,
+      message: 'Moved 0 skills',
+      errors: ['Project scope is unavailable from the home directory'],
+    };
+  }
   const errors: string[] = [];
   const warnings: string[] = [];
   let changed = 0;

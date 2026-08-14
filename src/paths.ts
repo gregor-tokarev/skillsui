@@ -4,6 +4,7 @@ import type { ScopeConfig, ScopeId } from './types.ts';
 
 export interface AppPaths {
   projectRoot: string;
+  projectEnabled: boolean;
   scopes: Record<ScopeId, ScopeConfig>;
 }
 
@@ -20,6 +21,8 @@ export function createAppPaths(projectRoot = process.cwd(), home = homedir()): A
 
   return {
     projectRoot: resolvedProject,
+    // Opening from the home directory would list ~/.agents/skills twice.
+    projectEnabled: resolvedProject !== resolvedHome,
     scopes: {
       project: {
         id: 'project',

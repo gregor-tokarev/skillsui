@@ -92,7 +92,13 @@ export async function discoverScope(scope: ScopeConfig): Promise<ScopeSnapshot> 
 
 export async function discoverAll(paths: AppPaths): Promise<AppSnapshot> {
   const [project, global] = await Promise.all([
-    discoverScope(paths.scopes.project),
+    paths.projectEnabled
+      ? discoverScope(paths.scopes.project)
+      : Promise.resolve({
+          config: paths.scopes.project,
+          skills: [],
+          hiddenLockEntries: 0,
+        }),
     discoverScope(paths.scopes.global),
   ]);
   return { project, global };

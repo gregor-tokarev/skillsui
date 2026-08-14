@@ -187,7 +187,7 @@ export function SearchQueryView(props: { modal: SearchModal }) {
   );
 }
 
-export function SearchResultsView(props: { modal: SearchModal }) {
+export function SearchResultsView(props: { modal: SearchModal; projectEnabled?: boolean }) {
   const dimensions = useTerminalDimensions();
   const bodyHeight = useModalBodyHeight();
   const capacity = () => Math.max(4, bodyHeight() - 6);
@@ -338,15 +338,26 @@ export function SearchResultsView(props: { modal: SearchModal }) {
         </box>
       </box>
       <HintLine
-        hints={[
-          ['j/k', 'move'],
-          ['n/p', 'page'],
-          ['Enter', 'install'],
-          ['i', 'project'],
-          ['I', 'global'],
-          ['PageUp/PageDown', 'preview'],
-          ['Esc', 'search'],
-        ]}
+        hints={
+          props.projectEnabled === false
+            ? [
+                ['j/k', 'move'],
+                ['n/p', 'page'],
+                ['Enter', 'install'],
+                ['i', 'global'],
+                ['PageUp/PageDown', 'preview'],
+                ['Esc', 'search'],
+              ]
+            : [
+                ['j/k', 'move'],
+                ['n/p', 'page'],
+                ['Enter', 'install'],
+                ['i', 'project'],
+                ['I', 'global'],
+                ['PageUp/PageDown', 'preview'],
+                ['Esc', 'search'],
+              ]
+        }
       />
     </>
   );
