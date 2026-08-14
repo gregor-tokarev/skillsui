@@ -136,6 +136,9 @@ export async function installSearchResult(
   scopeId: ScopeId,
   overwrite = false
 ): Promise<OperationResult> {
+  if (scopeId === 'project' && !paths.projectEnabled) {
+    throw new Error('Project scope is unavailable from the home directory');
+  }
   const scope = paths.scopes[scopeId];
   const seed = sourceEntry(result);
   const remote = await loadRemote(seed);

@@ -61,6 +61,7 @@ export function SkillPane(props: {
   scope: ScopeId;
   title: string;
   active: boolean;
+  solo?: boolean;
   rows: SkillRecord[];
   empty: boolean;
   cursorId: string | null;
@@ -69,11 +70,12 @@ export function SkillPane(props: {
 }) {
   const dimensions = useTerminalDimensions();
   // Two panes share the row: app padding (2) and the gap (1) are reserved first.
-  const rowWidth = () => Math.floor((dimensions().width - 3) / 2) - 5;
+  const rowWidth = () =>
+    props.solo ? dimensions().width - 8 : Math.floor((dimensions().width - 3) / 2) - 5;
 
   return (
     <box
-      width="50%"
+      width={props.solo ? '100%' : '50%'}
       height="100%"
       flexDirection="column"
       border={true}
@@ -92,7 +94,7 @@ export function SkillPane(props: {
             <text fg={COLORS.dim}>No skills in this scope</text>
             <text>
               <span style={{ fg: COLORS.text, bold: true }}>
-                {props.scope === 'project' ? 'i' : 'I'}
+                {props.scope === 'project' || props.solo ? 'i' : 'I'}
               </span>
               <span style={{ fg: COLORS.dim }}>{' install from skills.sh'}</span>
             </text>
