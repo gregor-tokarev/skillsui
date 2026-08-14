@@ -73,6 +73,7 @@ Useful checks:
 bun run typecheck
 bun run test
 bun run format:check
+bun run lint
 bun run build
 ```
 

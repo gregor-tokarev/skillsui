@@ -2,17 +2,19 @@
   "name": "skillsui",
   "version": "0.1.2",
   "private": true,
-  "type": "module",
   "bin": {
     "skillsui": "./src/index.tsx"
   },
+  "type": "module",
   "scripts": {
     "dev": "bun run src/index.tsx",
     "test": "bun test --preload=@opentui/solid/preload tests/*.test.ts*",
     "typecheck": "tsc --noEmit",
     "build": "bun run scripts/build.ts",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format": "vp fmt",
+    "format:check": "vp fmt --check",
+    "lint": "vp lint",
+    "check": "vp check"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
@@ -28,7 +30,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "prettier": "^3.8.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite-plus": "^0.2.9"
   }
 }

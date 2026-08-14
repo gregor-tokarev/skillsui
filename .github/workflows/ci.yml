@@ -18,5 +18,6 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run format:check
+      - run: bun run lint
       - run: bun run build linux-x64
       - run: dist/skillsui-linux-x64 --help
