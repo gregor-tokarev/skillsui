@@ -16,6 +16,16 @@ The installer verifies the SHA-256 checksum and writes `skillsui` to `~/.local/b
 release repository with `SKILLSUI_REPOSITORY=owner/repo` or the destination with
 `SKILLSUI_INSTALL_DIR=/path`.
 
+Update an existing install:
+
+```sh
+skillsui update
+```
+
+That downloads the latest GitHub release, checks the SHA-256, and replaces the running binary.
+Pin a tag with `skillsui update v0.1.2`. Builds that predate this command need the curl installer
+once more.
+
 ## Use
 
 Run `skillsui` from a project root. Pass another root with `skillsui --project path`.
