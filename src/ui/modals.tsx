@@ -92,6 +92,32 @@ export function ModalFrame(props: { title: string; danger: boolean; children: JS
   );
 }
 
+function modalTitle(modal: Modal): string {
+  if (modal.type === 'search') return `Install in ${modal.scope} scope`;
+  if (modal.type === 'fork') return `Fork ${modal.skill.folderName}`;
+  return modal.title;
+}
+
+/** Frames the open modal and picks the view its type and phase call for. */
+export function ModalHost(props: { modal: Modal; projectEnabled: boolean }) {
+  const body = () => {
+    const modal = props.modal;
+    if (modal.type === 'confirm') return <ConfirmView modal={modal} />;
+    if (modal.type === 'fork') return <ForkView modal={modal} />;
+    return modal.phase === 'query' ? (
+      <SearchQueryView modal={modal} />
+    ) : (
+      <SearchResultsView modal={modal} projectEnabled={props.projectEnabled} />
+    );
+  };
+
+  return (
+    <ModalFrame title={modalTitle(props.modal)} danger={props.modal.type === 'confirm'}>
+      {body()}
+    </ModalFrame>
+  );
+}
+
 /** Visible search-result rows after the modal chrome and the status line. */
 export function searchResultsCapacity(terminalWidth: number, terminalHeight: number): number {
   return Math.max(4, modalGeometry(terminalWidth, terminalHeight).height - 10);
