@@ -77,39 +77,3 @@ commit.
 | `PageUp` / `PageDown` | Scroll the preview                         |
 | `Backspace`           | Back to the query                          |
 | `Esc`                 | Close the modal                            |
-
-Confirmation dialogs answer to `y` and `n`, and scroll with `j` / `k` when the list of paths runs
-past the screen.
-
-## Development
-
-skillsui pins `vercel-labs/skills` as a Git submodule and imports its frontmatter parser, so clone
-with submodules:
-
-```sh
-git clone --recurse-submodules https://github.com/gregor-tokarev/skillsui.git
-cd skillsui
-bun install
-bun run dev
-```
-
-Checks:
-
-```sh
-bun run typecheck
-bun run test
-bun run format:check
-bun run lint
-bun run build
-```
-
-`bun run build` compiles for the current host. Pass `all`, `darwin-arm64`, `darwin-x64`,
-`linux-arm64`, or `linux-x64` to pick release targets. Linux builds declare OpenTUI's libc as glibc
-so Bun embeds the matching native package, and the x64 executables use Bun's baseline target for
-pre-2013 CPUs.
-
-Issues and pull requests are welcome. Run `bun run check` before you open one.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
