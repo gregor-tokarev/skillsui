@@ -1,20 +1,27 @@
 # skillsui
 
-`skillsui` is a keyboard-first terminal interface for project and global skills in the
-[skills.sh](https://skills.sh) ecosystem. It reads the skill folders and CLI lockfiles directly.
-There is no separate database.
+A terminal UI for managing [skills.sh](https://skills.sh) skills. Two panes, project on the left
+and global on the right, driven entirely by the keyboard.
+
+There is no database and no config file. skillsui reads the skill folders and the CLI lockfiles on
+disk, and every action writes back to those same files.
+
+| Scope   | Skill folders       | Lockfile                                                                   |
+| ------- | ------------------- | -------------------------------------------------------------------------- |
+| Project | `.agents/skills/`   | `skills-lock.json`                                                         |
+| Global  | `~/.agents/skills/` | `~/.agents/.skill-lock.json`, or `$XDG_STATE_HOME/skills/.skill-lock.json` |
 
 ## Install
 
-Release binaries support macOS and glibc Linux on ARM64 and x64.
+Release binaries cover macOS and glibc Linux on ARM64 and x64.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/gregor-tokarev/skillsui/main/install.sh | sh
 ```
 
-The installer verifies the SHA-256 checksum and writes `skillsui` to `~/.local/bin`. Override the
-release repository with `SKILLSUI_REPOSITORY=owner/repo` or the destination with
-`SKILLSUI_INSTALL_DIR=/path`.
+The installer verifies the SHA-256 checksum and writes `skillsui` to `~/.local/bin`. Three
+environment variables override its defaults: `SKILLSUI_INSTALL_DIR` for the destination,
+`SKILLSUI_VERSION` for a specific tag, and `SKILLSUI_REPOSITORY` for a fork.
 
 Update an existing install:
 
@@ -22,44 +29,62 @@ Update an existing install:
 skillsui update
 ```
 
-That downloads the latest GitHub release, checks the SHA-256, and replaces the running binary.
-Pin a tag with `skillsui update v0.1.4`. Builds that predate this command need the curl installer
-once more.
+That downloads the latest GitHub release, checks the SHA-256, and replaces the running binary. Pin
+a tag with `skillsui update v0.1.4`. Builds older than this command need the curl installer one
+more time.
 
 ## Use
 
-Run `skillsui` from a project root. Pass another root with `skillsui --project path`.
+Run `skillsui` from a project root. `skillsui --project path` (or `-p`) points it somewhere else.
+Running from your home directory shows only the global pane, since the two would otherwise list the
+same folder twice.
 
-| Key                   | Action                                                  |
-| --------------------- | ------------------------------------------------------- |
-| `j` / `k`             | Move within a pane                                      |
-| `h` / `l`             | Switch between project and global panes                 |
-| `x`                   | Toggle batch selection                                  |
-| `D`                   | Delete after confirming absolute paths                  |
-| `M`                   | Move selected skills to the other scope                 |
-| `F`                   | Fork one skill under a new local name                   |
-| `U`                   | Update selected tracked skills                          |
-| `o`                   | Open the skill folder with `$EDITOR`                    |
-| `i` / `I`             | Search skills.sh and install in project or global scope |
-| `n` / `p`             | Next / previous page of search results                  |
-| `PageUp` / `PageDown` | Scroll the selected search result's install preview     |
-| `r`                   | Reload folders, lockfiles, and update state             |
-| `q`                   | Quit                                                    |
+| Key       | Action                                                  |
+| --------- | ------------------------------------------------------- |
+| `j` / `k` | Move within a pane                                      |
+| `h` / `l` | Switch between the project and global panes             |
+| `x`       | Toggle batch selection                                  |
+| `D`       | Delete after confirming absolute paths                  |
+| `M`       | Move selected skills to the other scope                 |
+| `F`       | Fork one skill under a new local name                   |
+| `U`       | Update selected tracked skills                          |
+| `o`       | Open the skill folder with `$EDITOR`                    |
+| `i` / `I` | Search skills.sh and install in project or global scope |
+| `r`       | Reload folders, lockfiles, and update state             |
+| `q`       | Quit                                                    |
+
+Arrow keys work anywhere `hjkl` does.
 
 A selected batch applies across both panes for delete and update. Move acts on the active pane
-because every moved skill has the same destination scope. If nothing is selected, an action uses
-the skill under the cursor.
+because every moved skill then has the same destination scope. With nothing selected, an action
+uses the skill under the cursor.
 
-Folders with lock entries appear as tracked. Folders without entries appear as local. Lock entries
-without folders are counted as hidden in the pane title. Updates replace tracked skill contents, so
-the status line warns before an update starts.
+Folders with a lock entry are tracked. Folders without one are local. Lock entries with no folder
+on disk are counted as hidden in the pane title. An update replaces the contents of a tracked
+skill, so the status line warns you before one starts.
 
-Search results open in a split install modal. Selecting a result downloads and previews its
-`SKILL.md` before installation.
+### Search and install
+
+`i` and `I` open a split modal. Type a query, press `Enter`, then move through the results with
+`j` / `k`. Selecting a result downloads its `SKILL.md` and shows it in the right half before you
+commit.
+
+| Key                   | Action                                     |
+| --------------------- | ------------------------------------------ |
+| `Enter`               | Install into the scope the modal opened in |
+| `i` / `I`             | Install into the project or global scope   |
+| `n` / `p`             | Next / previous page of results            |
+| `PageUp` / `PageDown` | Scroll the preview                         |
+| `Backspace`           | Back to the query                          |
+| `Esc`                 | Close the modal                            |
+
+Confirmation dialogs answer to `y` and `n`, and scroll with `j` / `k` when the list of paths runs
+past the screen.
 
 ## Development
 
-The `vercel-labs/skills` repository is pinned as a Git submodule. Clone it with the project:
+skillsui pins `vercel-labs/skills` as a Git submodule and imports its frontmatter parser, so clone
+with submodules:
 
 ```sh
 git clone --recurse-submodules https://github.com/gregor-tokarev/skillsui.git
@@ -68,7 +93,7 @@ bun install
 bun run dev
 ```
 
-Useful checks:
+Checks:
 
 ```sh
 bun run typecheck
@@ -78,7 +103,13 @@ bun run lint
 bun run build
 ```
 
-`bun run build` compiles the current host target. Pass `all`, `darwin-arm64`, `darwin-x64`,
-`linux-arm64`, or `linux-x64` to choose release targets. Linux builds define OpenTUI's libc as
-glibc so Bun embeds the matching native package. The x64 executables use Bun's baseline target for
+`bun run build` compiles for the current host. Pass `all`, `darwin-arm64`, `darwin-x64`,
+`linux-arm64`, or `linux-x64` to pick release targets. Linux builds declare OpenTUI's libc as glibc
+so Bun embeds the matching native package, and the x64 executables use Bun's baseline target for
 pre-2013 CPUs.
+
+Issues and pull requests are welcome. Run `bun run check` before you open one.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
