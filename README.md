@@ -30,7 +30,7 @@ skillsui update
 ```
 
 That downloads the latest GitHub release, checks the SHA-256, and replaces the running binary. Pin
-a tag with `skillsui update v0.1.4`. Builds older than this command need the curl installer one
+a tag with `skillsui update v0.1.5`. Builds older than this command need the curl installer one
 more time.
 
 ## Use
