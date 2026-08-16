@@ -68,7 +68,8 @@ skill, so the status line warns you before one starts.
 
 `i` and `I` open a split modal. Type a query, press `Enter`, then move through the results with
 `j` / `k`. Selecting a result downloads its `SKILL.md` and shows it in the right half before you
-commit.
+commit. Installation keeps the canonical skill in `.agents/skills` and links it into
+`.claude/skills` for Claude Code.
 
 | Key                   | Action                                     |
 | --------------------- | ------------------------------------------ |

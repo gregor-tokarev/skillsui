@@ -3,14 +3,13 @@ import type { SearchSkill } from '../vendor/skills/src/find.ts';
 import { computeSkillFolderHash } from '../vendor/skills/src/local-lock.ts';
 import { getGitTreeHash } from '../vendor/skills/src/git.ts';
 import { parseSource, getOwnerRepo } from '../vendor/skills/src/source-parser.ts';
-import { sanitizeName } from '../vendor/skills/src/installer.ts';
+import { installSkillForAgent, sanitizeName } from '../vendor/skills/src/installer.ts';
 import { sanitizeMetadata } from '../vendor/skills/src/sanitize.ts';
 import type { AppPaths } from './paths.ts';
 import { assertPathInside, pathExists } from './fs-utils.ts';
 import { cloneLock, readLock, writeLock } from './lockfiles.ts';
 import { throwIfAborted } from './abort.ts';
 import { findRemoteSkill, getSkillPath, loadRemote } from './remote.ts';
-import { copyDirectoryTransaction } from './transactions.ts';
 import type {
   Collision,
   GlobalLockEntry,
@@ -169,11 +168,20 @@ export async function installSearchResult(
     }
 
     const skillPath = getSkillPath(remote.root, skill);
-    const contentHash = await computeSkillFolderHash(skill.path);
     const treeHash = await getGitTreeHash(remote.root, skillPath);
     const before = await readLock(scope);
     const next = cloneLock(before);
     removeMatchingEntries(next.skills, folderName);
+
+    const installation = await installSkillForAgent(skill, 'claude-code', {
+      cwd: scope.rootDir,
+      global: scopeId === 'global',
+      mode: 'symlink',
+    });
+    if (!installation.success) {
+      throw new Error(installation.error || `Could not install ${folderName}`);
+    }
+    const contentHash = await computeSkillFolderHash(destination);
 
     const common = {
       source: seed.source,
@@ -201,16 +209,13 @@ export async function installSearchResult(
       next.skills[skill.name] = entry;
     }
 
-    const tx = await copyDirectoryTransaction({
-      source: skill.path,
-      destination,
-      overwrite,
-      commit: () => writeLock(scope, next),
-    });
+    await writeLock(scope, next);
     return {
       changed: 1,
       message: `Installed ${folderName} in ${scope.label.toLowerCase()} scope`,
-      errors: tx.cleanupWarnings,
+      errors: installation.symlinkFailed
+        ? ['Could not create the Claude Code symlink; copied the skill instead']
+        : [],
     };
   } finally {
     await remote.cleanup().catch(() => undefined);
