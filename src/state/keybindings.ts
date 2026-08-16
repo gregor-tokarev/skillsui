@@ -140,10 +140,10 @@ export function createKeyBindings({
       if (skill) library.toggleSelection(skill.id);
       return;
     }
-    if (keyName === 'd' && key.shift) return actions.openDelete();
-    if (keyName === 'm' && key.shift) return void actions.startMove();
-    if (keyName === 'f' && key.shift) return actions.openFork();
-    if (keyName === 'u' && key.shift) return actions.startUpdate();
+    if (keyName === 'd') return actions.openDelete();
+    if (keyName === 'm') return void actions.startMove();
+    if (keyName === 'f') return actions.openFork();
+    if (keyName === 'u') return actions.startUpdate();
     if (keyName === 'o') return void actions.openEditor();
     if (keyName === 'i') return search.openSearch(installScope(key));
     if (keyName === 'r') return void library.refresh(true);

@@ -44,16 +44,17 @@ same folder twice.
 | `j` / `k` | Move within a pane                                      |
 | `h` / `l` | Switch between the project and global panes             |
 | `x`       | Toggle batch selection                                  |
-| `D`       | Delete after confirming absolute paths                  |
-| `M`       | Move selected skills to the other scope                 |
-| `F`       | Fork one skill under a new local name                   |
-| `U`       | Update selected tracked skills                          |
+| `d`       | Delete after confirming absolute paths                  |
+| `m`       | Move selected skills to the other scope                 |
+| `f`       | Fork one skill under a new local name                   |
+| `u`       | Update selected tracked skills                          |
 | `o`       | Open the skill folder with `$EDITOR`                    |
 | `i` / `I` | Search skills.sh and install in project or global scope |
 | `r`       | Reload folders, lockfiles, and update state             |
 | `q`       | Quit                                                    |
 
-Arrow keys work anywhere `hjkl` does.
+Arrow keys work anywhere `hjkl` does. Shortcuts are case-insensitive, so holding Shift is never
+required — the one exception is `I`, where Shift picks the global scope for an install.
 
 A selected batch applies across both panes for delete and update. Move acts on the active pane
 because every moved skill then has the same destination scope. With nothing selected, an action
