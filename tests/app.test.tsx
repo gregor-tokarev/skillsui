@@ -435,7 +435,7 @@ describe('OpenTUI app', () => {
     });
     try {
       await waitForAppFrame(setup, (frame) => frame.includes('fork-source'));
-      setup.mockInput.pressKey('f', { shift: true });
+      setup.mockInput.pressKey('f');
       const opened = await waitForAppFrame(
         setup,
         (frame) => frame.includes('Fork fork-source') && frame.includes('Name: fork-source-fork_')
@@ -466,7 +466,7 @@ describe('OpenTUI app', () => {
     const setup = await testRender(() => <App paths={paths} />, { width: 120, height: 30 });
     try {
       await waitForAppFrame(setup, (frame) => frame.includes('delete-from-ui'));
-      setup.mockInput.pressKey('d', { shift: true });
+      setup.mockInput.pressKey('d');
       const confirmation = await waitForAppFrame(
         setup,
         (frame) =>

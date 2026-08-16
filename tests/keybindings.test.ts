@@ -18,12 +18,12 @@ function qKey(): KeyEvent {
   });
 }
 
-function keyEvent(name: string): KeyEvent {
+function keyEvent(name: string, shift = false): KeyEvent {
   return new KeyEvent({
     name,
     ctrl: false,
     meta: false,
-    shift: false,
+    shift,
     option: false,
     sequence: name,
     number: false,
@@ -45,6 +45,26 @@ describe('main key bindings', () => {
     bindings(keyEvent('o'));
 
     expect(openCalls).toBe(1);
+  });
+
+  test.each([
+    ['d', 'openDelete'],
+    ['m', 'startMove'],
+    ['f', 'openFork'],
+    ['u', 'startUpdate'],
+  ] as const)('%s runs %s without shift, and shift does not change it', (name, action) => {
+    let calls = 0;
+    const bindings = createKeyBindings({
+      modal: () => null,
+      library: { busy: () => false },
+      actions: { [action]: () => void calls++ },
+    } as unknown as KeyBindingsDeps);
+
+    bindings(keyEvent(name));
+    expect(calls).toBe(1);
+
+    bindings(keyEvent(name.toUpperCase(), true));
+    expect(calls).toBe(2);
   });
 });
 
