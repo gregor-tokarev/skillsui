@@ -65,7 +65,7 @@ export function createKeyBindings({
     }
 
     if (activeModal.type === 'confirm') {
-      if (key.name.toLowerCase() === 'y') void activeModal.action();
+      if (isEnter(key) || key.name.toLowerCase() === 'y') void activeModal.action();
       if (key.name.toLowerCase() === 'n') closeModal();
       if (key.name === 'j' || key.name === 'down' || key.name === 'pagedown') {
         const step = key.name === 'pagedown' ? CONFIRM_PAGE_STEP : 1;

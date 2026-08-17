@@ -69,6 +69,48 @@ describe('main key bindings', () => {
 });
 
 describe('modal key bindings', () => {
+  test.each(['return', 'enter'])('%s confirms a confirmation modal', (name) => {
+    let confirmCalls = 0;
+    const activeModal: Modal = {
+      type: 'confirm',
+      title: 'Delete skill?',
+      lines: [],
+      offset: 0,
+      action: async () => void confirmCalls++,
+    };
+    const bindings = createKeyBindings({
+      modal: () => activeModal,
+    } as unknown as KeyBindingsDeps);
+
+    bindings(keyEvent(name));
+
+    expect(confirmCalls).toBe(1);
+  });
+
+  test('Escape cancels a confirmation modal', () => {
+    let confirmCalls = 0;
+    let currentModal: Modal | null = {
+      type: 'confirm',
+      title: 'Delete skill?',
+      lines: [],
+      offset: 0,
+      action: async () => void confirmCalls++,
+    };
+    let status = '';
+    const bindings = createKeyBindings({
+      modal: () => currentModal,
+      setModal: (next: Modal | null) => (currentModal = next),
+      search: { cancelPendingRequests: () => {} },
+      library: { announce: (message: string) => (status = message) },
+    } as unknown as KeyBindingsDeps);
+
+    bindings(keyEvent('escape'));
+
+    expect(currentModal).toBeNull();
+    expect(status).toBe('Cancelled');
+    expect(confirmCalls).toBe(0);
+  });
+
   test.each([
     ['confirmation', { type: 'confirm' }],
     ['fork', { type: 'fork' }],
