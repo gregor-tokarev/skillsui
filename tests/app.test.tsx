@@ -457,7 +457,7 @@ describe('OpenTUI app', () => {
     }
   });
 
-  test('shows the absolute path and waits for confirmation before delete', async () => {
+  test('shows the absolute path, cancels with Escape, and confirms with Enter', async () => {
     const root = await mkdtemp(join(tmpdir(), 'skillsui-delete-app-'));
     temporary.push(root);
     const paths = testPaths(join(root, 'project'), join(root, 'home'));
@@ -474,12 +474,19 @@ describe('OpenTUI app', () => {
           frame.includes(`${paths.projectRoot}/.agents/`) &&
           frame.includes('skills/delete-from-ui')
       );
-      expect(confirmation).toContain('y confirm');
+      expect(confirmation).toContain('Enter/y confirm');
+      expect(confirmation).toContain('Esc/n cancel');
       expect(await pathExists(skillPath)).toBe(true);
 
-      setup.mockInput.pressKey('n');
-      await setup.flush();
+      setup.mockInput.pressEscape();
+      await waitForAppFrame(setup, (frame) => frame.includes('Cancelled'));
       expect(await pathExists(skillPath)).toBe(true);
+
+      setup.mockInput.pressKey('d');
+      await waitForAppFrame(setup, (frame) => frame.includes('Delete 1 skill?'));
+      setup.mockInput.pressEnter();
+      await waitForAppFrame(setup, (frame) => frame.includes('Deleted 1 skill'));
+      expect(await pathExists(skillPath)).toBe(false);
     } finally {
       setup.renderer.destroy();
     }

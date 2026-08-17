@@ -157,8 +157,8 @@ export function ConfirmView(props: { modal: ConfirmModal }) {
       </box>
       <HintLine
         hints={[
-          ['y', 'confirm'],
-          ['n', 'cancel'],
+          ['Enter/y', 'confirm'],
+          ['Esc/n', 'cancel'],
           ['j/k', 'scroll'],
         ]}
       />
