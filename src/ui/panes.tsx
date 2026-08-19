@@ -30,6 +30,9 @@ export function paneTitle(
   return parts.join(' · ');
 }
 
+/** The narrowest a skill name gets before the right-side annotation drops. */
+const MIN_NAME_WIDTH = 8;
+
 function SkillRow(props: {
   skill: SkillRecord;
   focused: boolean;
@@ -46,9 +49,13 @@ function SkillRow(props: {
         : props.updateState === 'unavailable'
           ? 'unchecked'
           : '';
-  const badge = () => (props.skill.tracked ? 'tracked' : 'local');
-  const right = () => (marker() ? `${marker()} ${badge()}` : badge());
-  const name = () => fit(props.skill.folderName, props.width - 7 - right().length);
+  // Tracked is the default state, so only local skills carry a badge.
+  const badge = () => (props.skill.tracked ? '' : 'local');
+  const annotation = () => marker() || badge();
+  const showAnnotation = () =>
+    Boolean(annotation()) && props.width - 7 - annotation().length >= MIN_NAME_WIDTH;
+  const name = () =>
+    fit(props.skill.folderName, props.width - 7 - (showAnnotation() ? annotation().length : 0));
 
   return (
     <box
@@ -71,12 +78,13 @@ function SkillRow(props: {
         )}
       </text>
       <text flexShrink={0}>
-        {props.updateState === 'available' ? (
-          <span style={{ fg: COLORS.warning, bold: true }}>{`${marker()} `}</span>
-        ) : marker() ? (
-          <span style={{ fg: COLORS.dim }}>{`${marker()} `}</span>
+        {showAnnotation() ? (
+          props.updateState === 'available' ? (
+            <span style={{ fg: COLORS.warning, bold: true }}>{annotation()}</span>
+          ) : (
+            <span style={{ fg: COLORS.dim }}>{annotation()}</span>
+          )
         ) : null}
-        <span style={{ fg: props.skill.tracked ? COLORS.accent : COLORS.dim }}>{badge()}</span>
       </text>
     </box>
   );

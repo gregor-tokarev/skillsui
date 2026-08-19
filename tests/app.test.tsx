@@ -2,11 +2,13 @@
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import { testRender } from '@opentui/solid';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { App } from '../src/app.tsx';
 import { pathExists } from '../src/fs-utils.ts';
+import { writeLock } from '../src/lockfiles.ts';
+import { computeSkillFolderHash } from '../vendor/skills/src/local-lock.ts';
 import { testPaths, waitForAppFrame, writeSkill } from './helpers.ts';
 
 const temporary: string[] = [];
@@ -39,6 +41,47 @@ describe('OpenTUI app', () => {
       setup.mockInput.pressKey('x');
       await setup.flush();
       expect(setup.captureCharFrame()).toContain('[x] project-one');
+    } finally {
+      setup.renderer.destroy();
+    }
+  });
+
+  test('keeps long names visible at narrow widths and badges only local skills', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-narrow-app-'));
+    temporary.push(root);
+    const paths = testPaths(join(root, 'project'), join(root, 'home'));
+    const source = join(root, 'source');
+    const sourceSkill = await writeSkill(source, 'alpha-skill', { body: 'version one' });
+    const installed = await writeSkill(paths.scopes.project.skillsDir, 'alpha-skill', {
+      body: 'version one',
+    });
+    await writeLock(paths.scopes.project, {
+      version: 1,
+      skills: {
+        'alpha-skill': {
+          source,
+          sourceType: 'local',
+          skillPath: 'alpha-skill/SKILL.md',
+          computedHash: await computeSkillFolderHash(installed),
+        },
+      },
+    });
+    await writeSkill(paths.scopes.global.skillsDir, 'beta-skill');
+    await writeFile(
+      join(sourceSkill, 'SKILL.md'),
+      `---\nname: alpha-skill\ndescription: alpha-skill description\n---\n\nversion two\n`,
+      'utf8'
+    );
+
+    const setup = await testRender(() => <App paths={paths} />, { width: 60, height: 20 });
+    try {
+      const frame = await waitForAppFrame(setup, (text) => text.includes('↑ update'));
+      // The tracked row keeps a name stub next to the marker instead of
+      // surrendering the whole row to badges.
+      expect(frame).toContain('alpha-s…');
+      expect(frame).not.toContain('tracked');
+      expect(frame).toContain('beta-skill');
+      expect(frame).toContain('local');
     } finally {
       setup.renderer.destroy();
     }
