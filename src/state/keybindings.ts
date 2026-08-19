@@ -51,10 +51,10 @@ export function createKeyBindings({
 
   function handleModalKey(key: KeyEvent, activeModal: Modal): void {
     key.preventDefault();
-    if (key.name.toLowerCase() === 'q') {
-      quit();
-      return;
-    }
+    const keyName = key.name.toLowerCase();
+    // Ctrl+C quits from anywhere. Plain `q` quits only where no text input
+    // follows, so fork names and search queries can contain the letter.
+    if (key.ctrl && keyName === 'c') return quit();
     if (key.name === 'escape') {
       if (activeModal.type === 'search' && activeModal.phase === 'results') {
         search.returnToSearch(activeModal);
@@ -65,6 +65,7 @@ export function createKeyBindings({
     }
 
     if (activeModal.type === 'confirm') {
+      if (keyName === 'q') return quit();
       if (isEnter(key) || key.name.toLowerCase() === 'y') void activeModal.action();
       if (key.name.toLowerCase() === 'n') closeModal();
       if (key.name === 'j' || key.name === 'down' || key.name === 'pagedown') {
@@ -103,6 +104,7 @@ export function createKeyBindings({
       return;
     }
 
+    if (keyName === 'q') return quit();
     if (key.name === 'backspace') {
       search.returnToSearch(activeModal);
     } else if (key.name === 'j' || key.name === 'down') {

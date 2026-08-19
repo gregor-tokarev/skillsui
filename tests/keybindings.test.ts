@@ -18,10 +18,10 @@ function qKey(): KeyEvent {
   });
 }
 
-function keyEvent(name: string, shift = false): KeyEvent {
+function keyEvent(name: string, shift = false, ctrl = false): KeyEvent {
   return new KeyEvent({
     name,
-    ctrl: false,
+    ctrl,
     meta: false,
     shift,
     option: false,
@@ -113,8 +113,6 @@ describe('modal key bindings', () => {
 
   test.each([
     ['confirmation', { type: 'confirm' }],
-    ['fork', { type: 'fork' }],
-    ['search query', { type: 'search', phase: 'query' }],
     ['search results', { type: 'search', phase: 'results' }],
   ])('q quits from the %s modal', (_name, partialModal) => {
     let quitCalls = 0;
@@ -129,5 +127,52 @@ describe('modal key bindings', () => {
 
     expect(quitCalls).toBe(1);
     expect(key.defaultPrevented).toBe(true);
+  });
+
+  test('q types into the fork name instead of quitting', () => {
+    let quitCalls = 0;
+    let currentModal: Modal | null = { type: 'fork', value: 's' } as unknown as Modal;
+    const bindings = createKeyBindings({
+      modal: () => currentModal,
+      setModal: (next: Modal | null) => (currentModal = next),
+      quit: () => quitCalls++,
+    } as unknown as KeyBindingsDeps);
+
+    bindings(qKey());
+
+    expect(quitCalls).toBe(0);
+    expect((currentModal as { value: string }).value).toBe('sq');
+  });
+
+  test('q types into the search query instead of quitting', () => {
+    let quitCalls = 0;
+    let currentModal: Modal | null = {
+      type: 'search',
+      phase: 'query',
+      query: 's',
+    } as unknown as Modal;
+    const bindings = createKeyBindings({
+      modal: () => currentModal,
+      setModal: (next: Modal | null) => (currentModal = next),
+      quit: () => quitCalls++,
+    } as unknown as KeyBindingsDeps);
+
+    bindings(qKey());
+
+    expect(quitCalls).toBe(0);
+    expect((currentModal as { query: string }).query).toBe('sq');
+  });
+
+  test('ctrl+c quits from a modal', () => {
+    let quitCalls = 0;
+    const activeModal = { type: 'confirm' } as unknown as Modal;
+    const bindings = createKeyBindings({
+      modal: () => activeModal,
+      quit: () => quitCalls++,
+    } as unknown as KeyBindingsDeps);
+
+    bindings(keyEvent('c', false, true));
+
+    expect(quitCalls).toBe(1);
   });
 });
