@@ -114,7 +114,6 @@ export function SkillPane(props: {
       border={true}
       borderStyle="rounded"
       borderColor={props.active ? COLORS.active : COLORS.border}
-      backgroundColor={props.active ? COLORS.panelActive : COLORS.panel}
       title={props.title}
       titleColor={props.active ? COLORS.active : COLORS.dim}
       paddingX={1}

@@ -5,8 +5,6 @@ import { For, createEffect, createSignal, onCleanup } from 'solid-js';
 
 export const COLORS = {
   bg: '#111318',
-  panel: '#171a21',
-  panelActive: '#1d222c',
   border: '#3a4353',
   active: '#7aa2f7',
   accent: '#9ece6a',
