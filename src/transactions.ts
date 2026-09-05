@@ -17,11 +17,6 @@ export interface TransactionResult {
   cleanupWarnings: string[];
 }
 
-async function restorePath(backup: string | null, destination: string): Promise<void> {
-  await rm(destination, { recursive: true, force: true }).catch(() => undefined);
-  if (backup && (await pathExists(backup))) await rename(backup, destination);
-}
-
 export async function copyDirectoryTransaction(
   options: CopyTransactionOptions
 ): Promise<TransactionResult> {
@@ -35,6 +30,7 @@ export async function copyDirectoryTransaction(
     : null;
   const sourceBackup = options.removeSource ? temporarySibling(options.source, 'moved') : null;
   let destinationInstalled = false;
+  let destinationMoved = false;
   let sourceMoved = false;
 
   if (destinationBackup && !options.overwrite) {
@@ -60,7 +56,10 @@ export async function copyDirectoryTransaction(
       if (sourceHash !== stagedHash) throw new Error('Copied skill failed hash validation');
     }
 
-    if (destinationBackup) await rename(options.destination, destinationBackup);
+    if (destinationBackup) {
+      await rename(options.destination, destinationBackup);
+      destinationMoved = true;
+    }
     await rename(staged, options.destination);
     destinationInstalled = true;
 
@@ -76,8 +75,11 @@ export async function copyDirectoryTransaction(
       await rm(options.source, { recursive: true, force: true }).catch(() => undefined);
       await rename(sourceBackup, options.source).catch(() => undefined);
     }
-    if (destinationInstalled || destinationBackup) {
-      await restorePath(destinationBackup, options.destination).catch(() => undefined);
+    if (destinationInstalled) {
+      await rm(options.destination, { recursive: true, force: true }).catch(() => undefined);
+    }
+    if (destinationMoved && destinationBackup) {
+      await rename(destinationBackup, options.destination).catch(() => undefined);
     }
     throw error;
   }
