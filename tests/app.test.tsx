@@ -68,14 +68,14 @@ describe('OpenTUI app', () => {
     try {
       const queued = await waitForAppFrame(
         setup,
-        (frame) => (frame.match(/checking…/g) || []).length === 5 && frame.includes('waiting')
+        (frame) => (frame.match(/checking\.{1,3}/g) || []).length === 5 && frame.includes('waiting')
       );
       expect(queued.match(/waiting/g)).toHaveLength(2);
       expect(loader).toHaveBeenCalledTimes(5);
 
       gates[0]!.resolve();
       const progressed = await waitForAppFrame(setup, (frame) => frame.includes('↑ update'));
-      expect(progressed.match(/checking…/g)).toHaveLength(5);
+      expect(progressed.match(/checking\.{1,3}/g)).toHaveLength(5);
       expect(progressed.match(/waiting/g)).toHaveLength(1);
       expect(loader).toHaveBeenCalledTimes(6);
 
@@ -84,7 +84,7 @@ describe('OpenTUI app', () => {
         setup,
         (frame) => (frame.match(/waiting/g) || []).length === 7
       );
-      expect(reloaded).not.toContain('checking…');
+      expect(reloaded).not.toContain('checking');
       expect(reloaded).not.toContain('↑ update');
       expect(loader).toHaveBeenCalledTimes(6);
 
@@ -94,7 +94,7 @@ describe('OpenTUI app', () => {
       );
       expect(finished.match(/↑ update/g)).toHaveLength(7);
       expect(finished).not.toContain('waiting');
-      expect(finished).not.toContain('checking…');
+      expect(finished).not.toContain('checking');
       expect(loader).toHaveBeenCalledTimes(13);
     } finally {
       setup.renderer.destroy();

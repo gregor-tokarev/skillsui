@@ -38,14 +38,21 @@ const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', 
 const SPINNER_INTERVAL_MS = 90;
 
 /** Ticks only while `active` is true, so idle screens stay static. */
-export function useSpinnerFrame(active: () => boolean): () => string {
+export function useSpinnerFrame(
+  active: () => boolean,
+  options: { frames?: readonly string[]; intervalMs?: number } = {}
+): () => string {
+  const frames = options.frames ?? SPINNER_FRAMES;
   const [tick, setTick] = createSignal(0);
   createEffect(() => {
     if (!active()) return;
-    const timer = setInterval(() => setTick((current) => current + 1), SPINNER_INTERVAL_MS);
+    const timer = setInterval(
+      () => setTick((current) => current + 1),
+      options.intervalMs ?? SPINNER_INTERVAL_MS
+    );
     onCleanup(() => clearInterval(timer));
   });
-  return () => SPINNER_FRAMES[tick() % SPINNER_FRAMES.length]!;
+  return () => frames[tick() % frames.length]!;
 }
 
 /** Inline spinner for `text` children; renders nothing when inactive. */

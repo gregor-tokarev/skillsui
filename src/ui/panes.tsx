@@ -3,7 +3,7 @@
 import { For, Show } from 'solid-js';
 import { useTerminalDimensions } from '@opentui/solid';
 import type { ScopeId, ScopeSnapshot, SkillRecord, UpdateState } from '../types.ts';
-import { COLORS, fit } from './common.tsx';
+import { COLORS, fit, useSpinnerFrame } from './common.tsx';
 
 /** Skill rows a pane fits after the header, status bar, borders, and padding. */
 export function paneCapacity(terminalHeight: number): number {
@@ -38,6 +38,7 @@ function SkillRow(props: {
   focused: boolean;
   checked: boolean;
   updateState: UpdateState | undefined;
+  progressDots: string;
   width: number;
 }) {
   const nameColor = () => (props.skill.tracked ? COLORS.text : COLORS.dim);
@@ -45,9 +46,9 @@ function SkillRow(props: {
     props.updateState === 'available'
       ? '↑ update'
       : props.updateState === 'checking'
-        ? 'checking…'
+        ? `checking${props.progressDots}`
         : props.updateState === 'waiting'
-          ? 'waiting'
+          ? `waiting${props.progressDots}`
           : props.updateState === 'unavailable'
             ? 'unchecked'
             : '';
@@ -104,6 +105,15 @@ export function SkillPane(props: {
   updateState: (id: string) => UpdateState | undefined;
 }) {
   const dimensions = useTerminalDimensions();
+  // One clock for all visible pending rows. Padding keeps names and annotations stationary.
+  const progressDots = useSpinnerFrame(
+    () =>
+      props.rows.some((skill) => {
+        const state = props.updateState(skill.id);
+        return state === 'checking' || state === 'waiting';
+      }),
+    { frames: ['.  ', '.. ', '...'], intervalMs: 350 }
+  );
   // Two panes share the row: app padding (2) and the gap (1) are reserved first.
   const rowWidth = () =>
     props.solo ? dimensions().width - 8 : Math.floor((dimensions().width - 3) / 2) - 5;
@@ -142,6 +152,7 @@ export function SkillPane(props: {
               focused={props.active && props.cursorId === skill.id}
               checked={props.selected(skill.id)}
               updateState={props.updateState(skill.id)}
+              progressDots={progressDots()}
               width={rowWidth()}
             />
           )}

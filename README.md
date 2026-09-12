@@ -65,7 +65,8 @@ on disk are counted as hidden in the pane title. An update replaces the contents
 skill, so the status line warns you before one starts.
 
 Startup and reload check up to five tracked skills at a time across both panes. Queued skills show
-`waiting`, active checks show `checking…`, and each row shows its result as soon as its check finishes.
+`waiting`, active checks show `checking`, and both labels have animated dots. Each row shows its result
+as soon as its check finishes.
 Skills from the same source share a download.
 
 ### Search and install
