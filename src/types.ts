@@ -32,7 +32,7 @@ export interface LockFile<TEntry extends TrackedEntry = TrackedEntry> {
   [key: string]: unknown;
 }
 
-export type UpdateState = 'checking' | 'current' | 'available' | 'unavailable';
+export type UpdateState = 'waiting' | 'checking' | 'current' | 'available' | 'unavailable';
 
 export interface SkillRecord {
   id: string;

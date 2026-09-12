@@ -4,6 +4,7 @@ import type { AppPaths } from './paths.ts';
 import { cloneLock, readLock, writeLock } from './lockfiles.ts';
 import { findRemoteSkill, getSkillPath, loadRemote, type LoadedRemote } from './remote.ts';
 import { copyDirectoryTransaction } from './transactions.ts';
+import { latestWellKnownHash, loadUpdateIndex } from './well-known-updates.ts';
 import type {
   GlobalLockEntry,
   OperationResult,
@@ -16,6 +17,26 @@ import type {
 export interface UpdateCheckResult {
   states: Record<string, UpdateState>;
   errors: string[];
+}
+
+export interface UpdateCheckOptions {
+  onStateChange?: (id: string, state: UpdateState) => void;
+  signal?: AbortSignal;
+}
+
+// Share the five slots across refreshes, including checks still finishing from an older run.
+let activeChecks = 0;
+const waitingChecks: Array<() => void> = [];
+
+async function acquireCheckSlot(): Promise<() => void> {
+  if (activeChecks < 5) activeChecks++;
+  else await new Promise<void>((resolve) => waitingChecks.push(resolve));
+
+  return () => {
+    const next = waitingChecks.shift();
+    if (next) next();
+    else activeChecks--;
+  };
 }
 
 function groupKey(entry: TrackedEntry): string {
@@ -75,38 +96,62 @@ function installedHash(skill: SkillRecord): string {
   return (skill.lockEntry as GlobalLockEntry).skillFolderHash || '';
 }
 
-export async function checkForUpdates(skills: SkillRecord[]): Promise<UpdateCheckResult> {
+export async function checkForUpdates(
+  skills: SkillRecord[],
+  options: UpdateCheckOptions = {}
+): Promise<UpdateCheckResult> {
   const states: Record<string, UpdateState> = {};
   const errors: string[] = [];
-  for (const skill of skills) {
-    if (skill.tracked) states[skill.id] = 'checking';
+  const groups = groupTracked(skills);
+  function setState(skill: SkillRecord, state: UpdateState): void {
+    states[skill.id] = state;
+    if (!options.signal?.aborted) options.onStateChange?.(skill.id, state);
+  }
+  for (const group of groups) {
+    for (const skill of group) setState(skill, 'waiting');
   }
 
   await Promise.all(
-    groupTracked(skills).map(async (group) => {
-      const first = group[0];
-      if (!first?.lockEntry) return;
-      let remote: LoadedRemote | null = null;
-      try {
-        remote = await loadRemote(first.lockEntry);
-        await Promise.all(
-          group.map(async (skill) => {
-            try {
-              const latest = await latestHash(skill, remote!);
-              states[skill.id] =
-                latest.trackingHash === installedHash(skill) ? 'current' : 'available';
-            } catch (error) {
-              states[skill.id] = 'unavailable';
-              errors.push(`${skill.folderName}: ${(error as Error).message}`);
+    groups.map(async (group) => {
+      // Load a source only when a skill gets a slot, then reuse it for the whole group.
+      let remotePromise: Promise<LoadedRemote> | undefined;
+      let indexPromise: ReturnType<typeof loadUpdateIndex> | undefined;
+      let remaining = group.length;
+      await Promise.all(
+        group.map(async (skill) => {
+          const release = await acquireCheckSlot();
+          try {
+            if (options.signal?.aborted) return;
+            setState(skill, 'checking');
+            // Let in-flight downloads settle before releasing their slots on cancellation.
+            let hash: string;
+            if (skill.lockEntry!.sourceType === 'well-known') {
+              indexPromise ??= loadUpdateIndex(skill.lockEntry!);
+              const index = await indexPromise;
+              if (options.signal?.aborted) return;
+              hash = await latestWellKnownHash(skill, index);
+            } else {
+              remotePromise ??= loadRemote(skill.lockEntry!);
+              const remote = await remotePromise;
+              if (options.signal?.aborted) return;
+              hash = (await latestHash(skill, remote)).trackingHash;
             }
-          })
-        );
-      } catch (error) {
-        for (const skill of group) states[skill.id] = 'unavailable';
-        errors.push(`${first.lockEntry.source}: ${(error as Error).message}`);
-      } finally {
-        await remote?.cleanup().catch(() => undefined);
-      }
+            setState(skill, hash === installedHash(skill) ? 'current' : 'available');
+          } catch (error) {
+            setState(skill, 'unavailable');
+            errors.push(`${skill.folderName}: ${(error as Error).message}`);
+          } finally {
+            remaining--;
+            try {
+              if (remaining === 0) {
+                await remotePromise?.then((remote) => remote.cleanup()).catch(() => undefined);
+              }
+            } finally {
+              release();
+            }
+          }
+        })
+      );
     })
   );
 

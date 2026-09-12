@@ -1,6 +1,6 @@
 /** @jsxImportSource @opentui/solid */
 
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { testRender } from '@opentui/solid';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { App } from '../src/app.tsx';
 import { pathExists } from '../src/fs-utils.ts';
 import { writeLock } from '../src/lockfiles.ts';
+import * as remote from '../src/remote.ts';
 import { computeSkillFolderHash } from '../vendor/skills/src/local-lock.ts';
 import { testPaths, waitForAppFrame, writeSkill } from './helpers.ts';
 
@@ -18,6 +19,94 @@ afterEach(async () => {
 });
 
 describe('OpenTUI app', () => {
+  test('shows five checking rows across both panes, waiting rows, and incremental results', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-app-update-queue-'));
+    temporary.push(root);
+    const paths = testPaths(join(root, 'project'), join(root, 'home'));
+    const source = join(root, 'source');
+    await writeSkill(source, 'remote-skill');
+    for (let index = 0; index < 7; index++) {
+      const scope = index < 3 ? paths.scopes.project : paths.scopes.global;
+      await writeSkill(scope.skillsDir, `skill-${index}`);
+    }
+    for (const scope of Object.values(paths.scopes)) {
+      const indices = scope.id === 'project' ? [0, 1, 2] : [3, 4, 5, 6];
+      await writeLock(scope, {
+        version: scope.lockVersion,
+        skills: Object.fromEntries(
+          indices.map((index) => [
+            `skill-${index}`,
+            {
+              source: `source-${index}`,
+              sourceType: 'local',
+              sourceUrl: `source-${index}`,
+              skillPath: 'remote-skill/SKILL.md',
+              computedHash: '',
+              skillFolderHash: '',
+              installedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+          ])
+        ),
+      });
+    }
+    const gates = Array.from({ length: 7 }, () => Promise.withResolvers<void>());
+    const cleaned: string[] = [];
+    const loader = spyOn(remote, 'loadRemote').mockImplementation(async (entry) => {
+      const index = Number(entry.sourceUrl!.split('-')[1]);
+      await gates[index]!.promise;
+      return {
+        root: source,
+        sourceType: 'local',
+        sourceUrl: source,
+        cleanup: async () => {
+          cleaned.push(entry.source);
+        },
+      };
+    });
+    const setup = await testRender(() => <App paths={paths} />, { width: 120, height: 30 });
+    try {
+      const queued = await waitForAppFrame(
+        setup,
+        (frame) => (frame.match(/checking…/g) || []).length === 5 && frame.includes('waiting')
+      );
+      expect(queued.match(/waiting/g)).toHaveLength(2);
+      expect(loader).toHaveBeenCalledTimes(5);
+
+      gates[0]!.resolve();
+      const progressed = await waitForAppFrame(setup, (frame) => frame.includes('↑ update'));
+      expect(progressed.match(/checking…/g)).toHaveLength(5);
+      expect(progressed.match(/waiting/g)).toHaveLength(1);
+      expect(loader).toHaveBeenCalledTimes(6);
+
+      setup.mockInput.pressKey('r');
+      const reloaded = await waitForAppFrame(
+        setup,
+        (frame) => (frame.match(/waiting/g) || []).length === 7
+      );
+      expect(reloaded).not.toContain('checking…');
+      expect(reloaded).not.toContain('↑ update');
+      expect(loader).toHaveBeenCalledTimes(6);
+
+      for (const gate of gates) gate.resolve();
+      const finished = await waitForAppFrame(setup, (frame) =>
+        frame.includes('7 updates available')
+      );
+      expect(finished.match(/↑ update/g)).toHaveLength(7);
+      expect(finished).not.toContain('waiting');
+      expect(finished).not.toContain('checking…');
+      expect(loader).toHaveBeenCalledTimes(13);
+    } finally {
+      setup.renderer.destroy();
+      for (const gate of gates) gate.resolve();
+      // Let cancelled downloads clean up before removing their source fixture.
+      for (let attempt = 0; attempt < 100 && cleaned.length < loader.mock.calls.length; attempt++) {
+        await Bun.sleep(10);
+      }
+      loader.mockRestore();
+    }
+  });
+
   test('renders both scopes without a main-window preview and supports selection', async () => {
     const root = await mkdtemp(join(tmpdir(), 'skillsui-app-'));
     temporary.push(root);

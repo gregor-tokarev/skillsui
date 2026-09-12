@@ -40,6 +40,7 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
 
   let disposed = false;
   let checkGeneration = 0;
+  let checkController: AbortController | undefined;
 
   const projectEnabled = () => paths.projectEnabled;
   const visibleScopes = (): ScopeId[] =>
@@ -95,13 +96,21 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
 
   async function runBackgroundCheck(data: AppSnapshot): Promise<void> {
     const generation = ++checkGeneration;
+    checkController?.abort();
+    checkController = new AbortController();
     const tracked = allSkills(data).filter((skill) => skill.tracked);
     const initial: Record<string, UpdateState> = {};
-    for (const skill of tracked) initial[skill.id] = 'checking';
+    for (const skill of tracked) initial[skill.id] = 'waiting';
     setUpdates(initial);
     if (tracked.length === 0) return;
 
-    const result = await checkForUpdates(tracked);
+    const result = await checkForUpdates(tracked, {
+      signal: checkController.signal,
+      onStateChange: (id, state) => {
+        if (disposed || generation !== checkGeneration) return;
+        setUpdates((previous) => ({ ...previous, [id]: state }));
+      },
+    });
     if (disposed || generation !== checkGeneration) return;
     setUpdates(result.states);
     const available = Object.values(result.states).filter((state) => state === 'available').length;
@@ -164,6 +173,7 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
   onCleanup(() => {
     disposed = true;
     checkGeneration++;
+    checkController?.abort();
   });
 
   return {

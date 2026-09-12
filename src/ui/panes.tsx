@@ -46,9 +46,11 @@ function SkillRow(props: {
       ? '↑ update'
       : props.updateState === 'checking'
         ? 'checking…'
-        : props.updateState === 'unavailable'
-          ? 'unchecked'
-          : '';
+        : props.updateState === 'waiting'
+          ? 'waiting'
+          : props.updateState === 'unavailable'
+            ? 'unchecked'
+            : '';
   // Tracked is the default state, so only local skills carry a badge.
   const badge = () => (props.skill.tracked ? '' : 'local');
   const annotation = () => marker() || badge();
