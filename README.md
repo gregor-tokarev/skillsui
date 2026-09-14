@@ -6,6 +6,8 @@ and global on the right, driven entirely by the keyboard.
 There is no database and no config file. skillsui reads the skill folders and the CLI lockfiles on
 disk, and every action writes back to those same files.
 
+![skillsui browsing and selecting project and global skills in ~/video_editing](docs/skillsui-demo.gif)
+
 | Scope   | Skill folders       | Lockfile                                                                   |
 | ------- | ------------------- | -------------------------------------------------------------------------- |
 | Project | `.agents/skills/`   | `skills-lock.json`                                                         |
