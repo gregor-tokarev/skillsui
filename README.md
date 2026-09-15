@@ -7,6 +7,7 @@ There is no database and no config file. skillsui reads the skill folders and th
 disk, and every action writes back to those same files.
 
 This demo searches for and installs the `pdf` skill in `~/video_editing`.
+The video skips most of the installation wait.
 
 [Watch the MP4 demo](docs/skillsui-demo.mp4)
 

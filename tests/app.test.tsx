@@ -107,6 +107,105 @@ describe('OpenTUI app', () => {
     }
   });
 
+  test('keeps running and completed checks when installing a new skill', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillsui-install-update-queue-'));
+    temporary.push(root);
+    const paths = testPaths(join(root, 'project'), join(root, 'home'));
+    const source = join(root, 'source');
+    const catalog = join(root, 'catalog');
+    await writeSkill(source, 'remote-skill');
+    await writeSkill(catalog, 'new-skill');
+    for (const scope of Object.values(paths.scopes)) {
+      const indices = scope.id === 'project' ? [0, 1, 2] : [3, 4, 5, 6];
+      for (const index of indices) await writeSkill(scope.skillsDir, `skill-${index}`);
+      await writeLock(scope, {
+        version: scope.lockVersion,
+        skills: Object.fromEntries(
+          indices.map((index) => [
+            `skill-${index}`,
+            {
+              source: `source-${index}`,
+              sourceType: 'local',
+              sourceUrl: `source-${index}`,
+              skillPath: 'remote-skill/SKILL.md',
+              computedHash: '',
+              skillFolderHash: '',
+            },
+          ])
+        ),
+      });
+    }
+    const gates = Array.from({ length: 7 }, () => Promise.withResolvers<void>());
+    const cleaned: string[] = [];
+    const loadRemote = remote.loadRemote;
+    const loader = spyOn(remote, 'loadRemote').mockImplementation(async (entry, signal) => {
+      if (entry.source === catalog) return loadRemote(entry, signal);
+      const index = Number(entry.sourceUrl!.split('-')[1]);
+      await gates[index]!.promise;
+      return {
+        root: source,
+        sourceType: 'local',
+        sourceUrl: source,
+        cleanup: async () => {
+          cleaned.push(entry.source);
+        },
+      };
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL) => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        return Response.json(
+          url.pathname.startsWith('/api/download/')
+            ? { files: [{ path: 'SKILL.md', contents: '# New skill' }] }
+            : {
+                skills: [
+                  { id: 'local/new-skill', name: 'new-skill', source: catalog, installs: 1 },
+                ],
+              }
+        );
+      },
+      { preconnect: originalFetch.preconnect }
+    );
+    const setup = await testRender(() => <App paths={paths} />, { width: 120, height: 30 });
+    try {
+      await waitForAppFrame(setup, (frame) => (frame.match(/checking\.{1,3}/g) || []).length === 5);
+      gates[0]!.resolve();
+      await waitForAppFrame(setup, (frame) => frame.includes('↑ update'));
+
+      setup.mockInput.pressKey('i');
+      await setup.mockInput.typeText('new');
+      setup.mockInput.pressEnter();
+      await waitForAppFrame(setup, (frame) => frame.includes('Preview new-skill'));
+      setup.mockInput.pressEnter();
+      const installed = await waitForAppFrame(setup, (frame) =>
+        frame.includes('Installed new-skill in project scope')
+      );
+      expect(installed).toContain('Project 4');
+      expect(installed.match(/checking\.{1,3}/g)).toHaveLength(5);
+      expect(installed.match(/waiting/g)).toHaveLength(2);
+      expect(installed.match(/↑ update/g)).toHaveLength(1);
+      expect(loader.mock.calls.filter(([entry]) => entry.source !== catalog)).toHaveLength(6);
+
+      for (const gate of gates) gate.resolve();
+      const finished = await waitForAppFrame(
+        setup,
+        (frame) => frame.includes('7 updates available') && !/checking|waiting/.test(frame)
+      );
+      expect(finished.match(/↑ update/g)).toHaveLength(7);
+      expect(finished).toContain('new-skill');
+      expect(loader.mock.calls.filter(([entry]) => entry.source !== catalog)).toHaveLength(7);
+      // The new source is loaded once to install it and once to check it.
+      expect(loader.mock.calls.filter(([entry]) => entry.source === catalog)).toHaveLength(2);
+    } finally {
+      setup.renderer.destroy();
+      for (const gate of gates) gate.resolve();
+      for (let attempt = 0; attempt < 100 && cleaned.length < 7; attempt++) await Bun.sleep(10);
+      loader.mockRestore();
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test('renders both scopes without a main-window preview and supports selection', async () => {
     const root = await mkdtemp(join(tmpdir(), 'skillsui-app-'));
     temporary.push(root);

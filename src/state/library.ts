@@ -20,6 +20,11 @@ export interface LibraryOptions {
 
 export type LibraryState = ReturnType<typeof createLibraryState>;
 
+interface SkillCheck {
+  signature: string;
+  state: UpdateState;
+}
+
 /**
  * Discovered skills plus the cursor, selection, and status state that every
  * view and key binding reads. Owns the operation runner: operations clear the
@@ -41,6 +46,7 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
   let disposed = false;
   let checkGeneration = 0;
   let checkController: AbortController | undefined;
+  let skillChecks = new Map<string, SkillCheck>();
 
   const projectEnabled = () => paths.projectEnabled;
   const visibleScopes = (): ScopeId[] =>
@@ -94,34 +100,59 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
     }));
   }
 
-  async function runBackgroundCheck(data: AppSnapshot): Promise<void> {
-    const generation = ++checkGeneration;
-    checkController?.abort();
-    checkController = new AbortController();
+  async function runBackgroundCheck(data: AppSnapshot, preserveChecks: boolean): Promise<void> {
+    if (!preserveChecks || !checkController) {
+      checkGeneration++;
+      checkController?.abort();
+      checkController = new AbortController();
+      skillChecks.clear();
+    }
+    const generation = checkGeneration;
     const tracked = allSkills(data).filter((skill) => skill.tracked);
+    const nextChecks = new Map<string, SkillCheck>();
+    const pending = new Map<string, SkillCheck>();
     const initial: Record<string, UpdateState> = {};
-    for (const skill of tracked) initial[skill.id] = 'waiting';
+    for (const skill of tracked) {
+      // Installing a skill must not restart unchanged checks or discard their results.
+      const signature = JSON.stringify([skill.name, skill.lockEntry]);
+      let check = skillChecks.get(skill.id);
+      if (!check || check.signature !== signature) {
+        check = { signature, state: 'waiting' };
+        pending.set(skill.id, check);
+      }
+      nextChecks.set(skill.id, check);
+      initial[skill.id] = check.state;
+    }
+    skillChecks = nextChecks;
     setUpdates(initial);
-    if (tracked.length === 0) return;
+    if (pending.size === 0) return;
 
-    const result = await checkForUpdates(tracked, {
-      signal: checkController.signal,
-      onStateChange: (id, state) => {
-        if (disposed || generation !== checkGeneration) return;
-        setUpdates((previous) => ({ ...previous, [id]: state }));
-      },
-    });
+    await checkForUpdates(
+      tracked.filter((skill) => pending.has(skill.id)),
+      {
+        signal: checkController.signal,
+        onStateChange: (id, state) => {
+          if (disposed || generation !== checkGeneration) return;
+          const check = pending.get(id);
+          // A deleted or replaced skill may still have a check finishing in an older batch.
+          if (!check || skillChecks.get(id) !== check) return;
+          check.state = state;
+          setUpdates((previous) => ({ ...previous, [id]: state }));
+        },
+      }
+    );
     if (disposed || generation !== checkGeneration) return;
-    setUpdates(result.states);
-    const available = Object.values(result.states).filter((state) => state === 'available').length;
+    const states = Object.values(updates());
+    if (states.some((state) => state === 'checking' || state === 'waiting')) return;
+    const available = states.filter((state) => state === 'available').length;
     if (available > 0) {
       announce(`${available} update${available === 1 ? '' : 's'} available`, true);
-    } else if (result.errors.length > 0) {
+    } else if (states.includes('unavailable')) {
       announce('Local skills ready. Some updates could not be checked', true);
     }
   }
 
-  async function refresh(check = true): Promise<void> {
+  async function refresh(check = true, { preserveChecks = false } = {}): Promise<void> {
     setLoading(true);
     try {
       const data = await discoverAll(paths);
@@ -135,7 +166,7 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
           ? `${data.project.skills.length} project, ${data.global.skills.length} global`
           : `${data.global.skills.length} global`
       );
-      if (check) void runBackgroundCheck(data);
+      if (check) void runBackgroundCheck(data, preserveChecks);
     } catch (error) {
       announce((error as Error).message, true);
     } finally {
@@ -153,7 +184,7 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
     try {
       const result = await action();
       setSelected(new Set<string>());
-      await refresh(true);
+      await refresh(true, { preserveChecks: true });
       announce(operationStatus(result), result.errors.length > 0);
     } catch (error) {
       announce((error as Error).message, true);
