@@ -8,9 +8,7 @@ disk, and every action writes back to those same files.
 
 This demo searches for and installs the `pdf` skill in `~/video_editing`.
 
-https://github.com/user-attachments/assets/77aa3835-9197-40a3-b2bb-d6cabeb6bac7
-
-[Download the MP4](docs/skillsui-demo.mp4)
+[Watch the MP4 demo](docs/skillsui-demo.mp4)
 
 | Scope   | Skill folders       | Lockfile                                                                   |
 | ------- | ------------------- | -------------------------------------------------------------------------- |
