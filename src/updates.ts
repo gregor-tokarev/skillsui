@@ -165,6 +165,7 @@ export async function updateSkills(
   const tracked = skills.filter((skill) => skill.tracked && skill.lockEntry);
   const errors: string[] = [];
   const warnings: string[] = [];
+  const currentIds: string[] = [];
   let changed = 0;
 
   for (const group of groupTracked(tracked)) {
@@ -212,6 +213,7 @@ export async function updateSkills(
             commit: () => writeLock(scope, next),
           });
           warnings.push(...tx.cleanupWarnings);
+          currentIds.push(skill.id);
           changed++;
         } catch (error) {
           errors.push(`${skill.folderName}: ${(error as Error).message}`);
@@ -231,5 +233,6 @@ export async function updateSkills(
       skipped ? `, skipped ${skipped} local` : ''
     }`,
     errors: [...errors, ...warnings],
+    currentIds,
   };
 }

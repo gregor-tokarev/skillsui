@@ -100,7 +100,11 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
     }));
   }
 
-  async function runBackgroundCheck(data: AppSnapshot, preserveChecks: boolean): Promise<void> {
+  async function runBackgroundCheck(
+    data: AppSnapshot,
+    preserveChecks: boolean,
+    currentIds: ReadonlySet<string>
+  ): Promise<void> {
     if (!preserveChecks || !checkController) {
       checkGeneration++;
       checkController?.abort();
@@ -117,8 +121,10 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
       const signature = JSON.stringify([skill.name, skill.lockEntry]);
       let check = skillChecks.get(skill.id);
       if (!check || check.signature !== signature) {
-        check = { signature, state: 'waiting' };
-        pending.set(skill.id, check);
+        // A skill that was just updated is already at the version a check would find.
+        const current = currentIds.has(skill.id);
+        check = { signature, state: current ? 'current' : 'waiting' };
+        if (!current) pending.set(skill.id, check);
       }
       nextChecks.set(skill.id, check);
       initial[skill.id] = check.state;
@@ -152,7 +158,10 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
     }
   }
 
-  async function refresh(check = true, { preserveChecks = false } = {}): Promise<void> {
+  async function refresh(
+    check = true,
+    { preserveChecks = false, currentIds = [] as string[] } = {}
+  ): Promise<void> {
     setLoading(true);
     try {
       const data = await discoverAll(paths);
@@ -166,7 +175,7 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
           ? `${data.project.skills.length} project, ${data.global.skills.length} global`
           : `${data.global.skills.length} global`
       );
-      if (check) void runBackgroundCheck(data, preserveChecks);
+      if (check) void runBackgroundCheck(data, preserveChecks, new Set(currentIds));
     } catch (error) {
       announce((error as Error).message, true);
     } finally {
@@ -184,7 +193,7 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
     try {
       const result = await action();
       setSelected(new Set<string>());
-      await refresh(true, { preserveChecks: true });
+      await refresh(true, { preserveChecks: true, currentIds: result.currentIds });
       announce(operationStatus(result), result.errors.length > 0);
     } catch (error) {
       announce((error as Error).message, true);

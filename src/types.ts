@@ -64,6 +64,8 @@ export interface OperationResult {
   changed: number;
   message: string;
   errors: string[];
+  /** Skills the operation left at their latest version, so they need no update check. */
+  currentIds?: string[];
 }
 
 export interface Collision {
