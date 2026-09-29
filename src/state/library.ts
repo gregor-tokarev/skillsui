@@ -120,11 +120,12 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
       // Installing a skill must not restart unchanged checks or discard their results.
       const signature = JSON.stringify([skill.name, skill.lockEntry]);
       let check = skillChecks.get(skill.id);
-      if (!check || check.signature !== signature) {
+      if (currentIds.has(skill.id)) {
         // A skill that was just updated is already at the version a check would find.
-        const current = currentIds.has(skill.id);
-        check = { signature, state: current ? 'current' : 'waiting' };
-        if (!current) pending.set(skill.id, check);
+        check = { signature, state: 'current' };
+      } else if (!check || check.signature !== signature) {
+        check = { signature, state: 'waiting' };
+        pending.set(skill.id, check);
       }
       nextChecks.set(skill.id, check);
       initial[skill.id] = check.state;
@@ -137,6 +138,8 @@ export function createLibraryState(paths: AppPaths, options: LibraryOptions = {}
       tracked.filter((skill) => pending.has(skill.id)),
       {
         signal: checkController.signal,
+        // A skill replaced by a later batch or an update must not load its source here.
+        isSuperseded: (id) => skillChecks.get(id) !== pending.get(id),
         onStateChange: (id, state) => {
           if (disposed || generation !== checkGeneration) return;
           const check = pending.get(id);

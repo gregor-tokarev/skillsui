@@ -21,6 +21,8 @@ export interface UpdateCheckResult {
 
 export interface UpdateCheckOptions {
   onStateChange?: (id: string, state: UpdateState) => void;
+  /** Skips a skill that is still queued when its result is no longer wanted. */
+  isSuperseded?: (id: string) => boolean;
   signal?: AbortSignal;
 }
 
@@ -121,7 +123,7 @@ export async function checkForUpdates(
         group.map(async (skill) => {
           const release = await acquireCheckSlot();
           try {
-            if (options.signal?.aborted) return;
+            if (options.signal?.aborted || options.isSuperseded?.(skill.id)) return;
             setState(skill, 'checking');
             // Let in-flight downloads settle before releasing their slots on cancellation.
             let hash: string;
